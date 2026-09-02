@@ -50,9 +50,14 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
   let analysisTimer = null;
   let analysisController = null;
   let currentAnalysisRequestId = 0;
-  let contextTrace = prompt?.contextTrace || null;
-  let informationWarnings = prompt?.informationWarnings || prompt?.contextTrace?.informationWarnings || [];
-  let traceContentHash = prompt?.traceContentHash || null;
+  const informationReviewState = {
+    warnings: prompt?.informationWarnings || [],
+    status: prompt?.informationReviewStatus || 'not_analyzed',
+    reviewedContentHash: prompt?.informationReviewContentHash || null,
+    reviewedAt: prompt?.informationReviewedAt || null,
+    isReviewing: false,
+    error: null
+  };
   async function contentHash(value) {
     if (!globalThis.crypto?.subtle) return value;
     const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
@@ -133,27 +138,34 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
   const analysisStatus = document.createElement('div');
   analysisStatus.className = 'ai-analysis-status'; analysisStatus.setAttribute('aria-live', 'polite'); analysisStatus.hidden = true;
   analysisControls.append(analyzeButton, analysisStatus);
-  const traceSection = document.createElement('section');
-  traceSection.className = 'context-trace';
-  const traceTitle = document.createElement('h3'); traceTitle.textContent = 'Context Trace';
-  const traceCards = document.createElement('div'); traceCards.className = 'context-trace__cards';
-  traceSection.append(traceTitle, traceCards);
-  function renderTrace() {
-    traceCards.replaceChildren();
-    if (!contextTrace) { traceSection.hidden = true; return; }
-    traceSection.hidden = false;
-    for (const type of ['project', 'organization', 'personal']) {
-      const item = contextTrace[type] || { status: 'not_required', missingItems: [] };
-      const card = document.createElement('article'); card.className = `context-trace__card context-trace__card--${item.status}`;
-      const heading = document.createElement('strong'); heading.textContent = `${type} context`;
-      const status = document.createElement('span'); status.textContent = item.status.replace('_', ' ');
-      card.append(heading, status);
-      (item.missingItems || []).forEach((missing) => { const row = document.createElement('div'); row.textContent = `• ${missing}`; card.append(row); });
-      traceCards.append(card);
+  const informationSection = document.createElement('section');
+  informationSection.className = 'information-review';
+  const informationTitle = document.createElement('h3'); informationTitle.textContent = 'Information to review';
+  const informationCards = document.createElement('div'); informationCards.className = 'information-review__cards';
+  informationSection.append(informationTitle, informationCards);
+  function renderInformationReview() {
+    informationCards.replaceChildren();
+    const groups = { credential: 'Possible credential', personal: 'Personal identifiers', organization: 'Organization references', project: 'Project references' };
+    const descriptions = { credential: 'Authentication or secret information', personal: 'Name, employee ID and email', organization: 'Company reference', project: 'Private project identifier' };
+    const icons = { credential: '🔑', personal: '👤', organization: '🏢', project: '📁' };
+    for (const type of ['credential', 'personal', 'organization', 'project']) {
+      const warnings = informationReviewState.warnings.filter((warning) => warning.type === type);
+      if (!warnings.length) continue;
+      const card = document.createElement('article'); card.className = 'information-review__card';
+      const heading = document.createElement('div'); heading.className = 'information-review__heading';
+      const label = document.createElement('strong'); label.textContent = `${icons[type]} ${warnings[0].title || groups[type]}`;
+      const review = document.createElement('span'); review.textContent = 'Review'; review.className = 'information-review__badge';
+      heading.append(label, review);
+      const description = document.createElement('p'); description.textContent = descriptions[type];
+      card.append(heading, description);
+      warnings.slice(0, 3).forEach((warning) => { const evidence = document.createElement('p'); evidence.className = 'information-review__evidence'; evidence.textContent = `Detected: ${(warning.detectedValues || [warning.evidence]).join(' · ') || '[REDACTED]'}`; card.append(evidence); });
+      if (warnings.length > 3) { const more = document.createElement('p'); more.className = 'information-review__more'; more.textContent = `+ ${warnings.length - 3} more references`; card.append(more); }
+      informationCards.append(card);
     }
+    informationSection.hidden = !informationReviewState.warnings.length;
   }
-  renderTrace();
-  form.append(nameField.wrapper, categoryField, contentField.wrapper, analysisControls, traceSection, summaryField.wrapper, inputField.wrapper, outputField.wrapper);
+  renderInformationReview();
+  form.append(nameField.wrapper, categoryField, contentField.wrapper, analysisControls, informationSection, summaryField.wrapper, inputField.wrapper, outputField.wrapper);
 
   const cancelButton = document.createElement('button');
   cancelButton.className = 'button button--secondary';
@@ -173,12 +185,11 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
 
   function setLoading(loading) {
     analyzeButton.disabled = loading;
-    saveButton.disabled = loading;
     if (loading) {
       analysisStatus.hidden = false;
       analysisStatus.replaceChildren();
       const spinner = document.createElement('span'); spinner.className = 'spinner'; spinner.setAttribute('aria-hidden', 'true');
-      analysisStatus.append(spinner, document.createTextNode('Analyzing prompt and tracing required context...'));
+      analysisStatus.append(spinner, document.createTextNode('Analyzing prompt and reviewing private information...'));
       analyzeButton.replaceChildren(createIcon('sparkle'), document.createTextNode('Analyzing...'));
       [nameField, ...fields].forEach(({ input }) => input.classList.toggle('is-loading', true));
       categorySelect.element.classList.add('is-loading');
@@ -207,35 +218,40 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
     analysisController?.abort();
     const requestId = ++currentAnalysisRequestId;
     analysisController = new AbortController();
+    informationReviewState.isReviewing = true;
     setLoading(true);
     try {
       const result = await analyzePrompt(content, { signal: analysisController.signal });
       if (requestId !== currentAnalysisRequestId || content !== contentField.input.value.trim()) return;
-      if (!aiFieldState.promptNameDirty) nameField.input.value = result.promptName;
+      if (!aiFieldState.promptNameDirty) nameField.input.value = result.name;
       if (!aiFieldState.categoriesDirty) {
         const validIds = new Set(workingCategories.map((category) => category.id));
-        selectedIds = (result.categoryIds || []).filter((id) => validIds.has(id));
+        selectedIds = (result.suggestedCategoryIds || []).filter((id) => validIds.has(id));
         categoryError.hidden = selectedIds.length > 0;
         categorySelect.refresh();
       }
       if (!aiFieldState.summaryDirty) summaryField.input.value = result.summary;
       if (!aiFieldState.inputDirty) inputField.input.value = result.input;
       if (!aiFieldState.outputDirty) outputField.input.value = result.output;
-      contextTrace = result.contextTrace || null;
-      informationWarnings = result.informationWarnings || [];
-      traceContentHash = await contentHash(content);
-      renderTrace();
+      informationReviewState.warnings = result.informationWarnings || [];
+      informationReviewState.status = informationReviewState.warnings.length ? 'warning' : 'clear';
+      informationReviewState.reviewedContentHash = await contentHash(content);
+      informationReviewState.reviewedAt = new Date().toISOString();
+      informationReviewState.error = null;
+      renderInformationReview();
       analysisStatus.hidden = false;
       analysisStatus.replaceChildren(document.createTextNode('✓ Prompt details generated — review and edit before saving.'));
       window.setTimeout(() => { if (analysisStatus.isConnected) analysisStatus.hidden = true; }, 2000);
     } catch (error) {
       if (error.name !== 'AbortError' && requestId === currentAnalysisRequestId) {
+        informationReviewState.status = 'unavailable';
+        informationReviewState.error = error.message;
         analysisStatus.hidden = false;
         analysisStatus.replaceChildren(document.createTextNode('Could not generate prompt details. You can retry or enter them manually.'));
         showToast(error.message.includes('not configured') ? 'AI analysis is not configured. Enter the details manually.' : 'Could not analyze this prompt. You can retry or enter the details manually.', 'error');
       }
     } finally {
-      if (requestId === currentAnalysisRequestId) { setLoading(false); analysisController = null; }
+      if (requestId === currentAnalysisRequestId) { informationReviewState.isReviewing = false; setLoading(false); analysisController = null; }
     }
   }
 
@@ -247,9 +263,10 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
     analysisTimer = window.setTimeout(() => runAnalysis(), 700);
   });
   contentField.input.addEventListener('input', () => {
-    if (contextTrace && contentField.input.value.trim() !== prompt?.content?.trim()) {
+    if (informationReviewState.status !== 'not_analyzed' && contentField.input.value.trim() !== prompt?.content?.trim()) {
       analysisStatus.hidden = false;
-      analysisStatus.textContent = 'Prompt content changed — context trace is out of date.';
+      informationReviewState.status = 'stale';
+      analysisStatus.textContent = 'Prompt content changed — information review is out of date.';
     }
   });
 
@@ -273,25 +290,27 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
       categorySelect.focus();
       return;
     }
-    const currentContent = contentField.input.value.trim();
-    if (contextTrace && traceContentHash !== await contentHash(currentContent)) {
-      contextTrace = null; informationWarnings = []; traceContentHash = null; renderTrace();
+    if (informationReviewState.status === 'stale') {
+      informationReviewState.warnings = [];
+      renderInformationReview();
       await runAnalysis({ force: false });
-      if (!contextTrace) { showToast('Context review is unavailable. You can create without review.', 'error'); }
+      if (informationReviewState.status === 'stale') { informationReviewState.status = 'unavailable'; informationReviewState.error = 'Review unavailable'; }
     }
     const save = () => onSave({
       data: {
         name: nameField.input.value, categoryIds: selectedIds, summary: summaryField.input.value,
         input: inputField.input.value, output: outputField.input.value, content: contentField.input.value,
-        contextTrace: contextTrace || {}, informationWarnings, traceStatus: contextTrace ? (informationWarnings.length ? 'warning' : 'completed') : 'unavailable',
-        traceContentHash, traceAnalyzedAt: contextTrace ? new Date().toISOString() : null
+        informationWarnings: informationReviewState.warnings,
+        informationReviewStatus: informationReviewState.status,
+        informationReviewContentHash: informationReviewState.reviewedContentHash,
+        informationReviewedAt: informationReviewState.reviewedAt
       }, categories: workingCategories
     });
     saveButton.disabled = true;
     try {
       let saved;
-      if (informationWarnings.length) {
-        openPrivacyConfirmation({ warnings: informationWarnings, onCancel: () => { saveButton.disabled = false; }, onConfirm: async () => { try { saved = await save(); if (saved !== false) close(); } catch (error) { showToast(error.message, 'error'); saveButton.disabled = false; } } });
+      if (informationReviewState.warnings.length) {
+        openPrivacyConfirmation({ warnings: informationReviewState.warnings, actionLabel: isEdit ? 'Save anyway' : 'Create anyway', onCancel: () => { saveButton.disabled = false; }, onConfirm: async () => { try { saved = await save(); if (saved !== false) close(); } catch (error) { showToast(error.message, 'error'); saveButton.disabled = false; } } });
         return;
       }
       saved = await save();

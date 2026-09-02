@@ -120,7 +120,7 @@ export function openAnalysisConfirmation({ onConfirm }) {
   confirm.addEventListener('click', () => { close(); onConfirm(); });
 }
 
-export function openPrivacyConfirmation({ warnings, onConfirm, onCancel = null }) {
+export function openPrivacyConfirmation({ warnings, onConfirm, onCancel = null, actionLabel = 'Create anyway' }) {
   const content = document.createElement('div');
   content.className = 'confirmation-copy';
   const heading = document.createElement('h3'); heading.textContent = 'Review before saving';
@@ -130,7 +130,7 @@ export function openPrivacyConfirmation({ warnings, onConfirm, onCancel = null }
   const note = document.createElement('p'); note.textContent = warnings.some((warning) => warning.type === 'credential') ? 'A possible credential was detected. Saving passwords, API keys or access tokens is not recommended.' : 'Review the prompt before continuing.';
   content.append(heading, description, list, note);
   const cancel = document.createElement('button'); cancel.className = 'button button--secondary'; cancel.type = 'button'; cancel.textContent = 'Cancel';
-  const confirm = document.createElement('button'); confirm.className = 'button button--primary'; confirm.type = 'button'; confirm.textContent = 'Create anyway';
+  const confirm = document.createElement('button'); confirm.className = 'button button--primary'; confirm.type = 'button'; confirm.textContent = actionLabel;
   const close = openModal({ title: 'Create prompt with warnings?', content, footer: [cancel, confirm], size: 'small' });
   cancel.addEventListener('click', () => { close(); onCancel?.(); }); confirm.addEventListener('click', () => { close(); onConfirm(); });
 }

@@ -47,12 +47,14 @@ test('prompt input/output migration is idempotent and preserves legacy prompts a
   try {
     const db = initializeDatabase(filename);
     assert.deepEqual(db.prepare('PRAGMA table_info(prompts)').all().map((column) => column.name), [
-      'id', 'name', 'summary', 'content', 'created_at', 'updated_at', 'input_description', 'output_description'
+      'id', 'name', 'summary', 'content', 'created_at', 'updated_at', 'input_description', 'output_description',
+      'information_warnings_json', 'information_review_status', 'information_reviewed_at', 'information_review_content_hash'
     ]);
     const prompts = createPromptRepository(db);
     assert.deepEqual(prompts.get('legacy'), {
       id: 'legacy', name: 'Legacy', summary: 'Summary', input: '', output: '', content: 'Content',
-      categoryIds: ['legacy-cat'], createdAt: '2026-01-01', updatedAt: '2026-01-01'
+      categoryIds: ['legacy-cat'], createdAt: '2026-01-01', updatedAt: '2026-01-01', informationWarnings: [],
+      informationReviewStatus: 'not_analyzed', informationReviewedAt: null, informationReviewContentHash: null
     });
     db.close();
     const secondDb = initializeDatabase(filename);

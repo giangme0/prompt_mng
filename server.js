@@ -7,6 +7,7 @@ import { initializeDatabase } from './server/database.js';
 import { createCategoryRepository } from './server/category-repository.js';
 import { createPromptRepository } from './server/prompt-repository.js';
 import { analyzePrompt, mapSuggestedCategories } from './server/services/llm-service.js';
+import { detectInformationWarnings } from './server/services/information-review.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 dotenv.config({ path: join(ROOT, '.env') });
@@ -62,8 +63,7 @@ function validatePromptText(value, field) {
   return text;
 }
 
-const TRACE_TYPES = ['project', 'organization', 'personal'];
-const WARNING_TYPES = ['personal', 'organization', 'credential'];
+const WARNING_TYPES = ['personal', 'organization', 'project', 'credential'];
 function safeEvidence(value, type) {
   if (type === 'credential') return '[REDACTED]';
   return String(value || '').slice(0, 120)
@@ -71,21 +71,13 @@ function safeEvidence(value, type) {
     .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, (email) => `${email[0]}***${email.slice(email.indexOf('@'))}`)
     .replace(/\b(?:\+?\d[\d ()-]{6,}\d)\b/g, (phone) => `******${phone.replace(/\D/g, '').slice(-4)}`);
 }
-function validateTrace(trace) {
-  if (!trace || typeof trace !== 'object') return { trace: {}, warnings: [] };
-  const normalized = {};
-  for (const type of TRACE_TYPES) {
-    const item = trace[type];
-    if (!item || typeof item !== 'object') continue;
-    normalized[type] = {
-      required: Boolean(item.required),
-      status: ['not_required', 'sufficient', 'missing'].includes(item.status) ? item.status : 'not_required',
-      missingItems: Array.isArray(item.missingItems) ? item.missingItems.filter((value) => typeof value === 'string' && value.trim()).slice(0, 10).map((value) => value.trim()) : [],
-      reason: typeof item.reason === 'string' ? item.reason.trim().slice(0, 500) : ''
-    };
-  }
-  const warnings = Array.isArray(trace.informationWarnings) ? trace.informationWarnings.filter((warning) => warning && WARNING_TYPES.includes(warning.type)).map((warning) => ({ type: warning.type, severity: 'warning', label: String(warning.label || '').slice(0, 160), description: String(warning.description || '').slice(0, 500), evidence: safeEvidence(warning.evidence, warning.type) })) : [];
-  return { trace: normalized, warnings };
+function validateInformationWarnings(value) {
+  return Array.isArray(value) ? value.filter((warning) => warning && WARNING_TYPES.includes(warning.type)).map((warning) => ({
+    type: warning.type,
+    title: String(warning.title || warning.label || '').slice(0, 160),
+    description: String(warning.description || '').slice(0, 500),
+    detectedValues: (Array.isArray(warning.detectedValues) ? warning.detectedValues : [warning.evidence]).filter(Boolean).slice(0, 10).map((value) => safeEvidence(value, warning.type))
+  })) : [];
 }
 
 function validateCategoryBody(body) {
@@ -101,10 +93,16 @@ async function handleApi(request, response, url) {
   if (request.method === 'POST' && path === '/api/llm/analyze-prompt') {
     const body = await readJson(request);
     const availableCategories = categories.list();
-    const analysis = await analyzePrompt(body?.content, availableCategories);
+    let analysis;
+    try {
+      analysis = await analyzePrompt(body?.content, availableCategories);
+    } catch (error) {
+      if (error.status === 400) throw error;
+      console.log(`[llm] Analysis unavailable (${error.status || 500}); using rule-based information review`);
+      analysis = { promptName: '', categories: [], summary: '', input: '', output: '', informationWarnings: detectInformationWarnings(body?.content) };
+    }
     const matchedCategories = mapSuggestedCategories(analysis.categories, availableCategories);
-    const contextTrace = analysis.contextTrace || Object.fromEntries(['project', 'organization', 'personal'].map((type) => [type, { required: false, status: 'not_required', missingItems: [], reason: '' }]));
-    return sendJson(response, 200, { promptName: analysis.promptName, ...matchedCategories, summary: analysis.summary, input: analysis.input, output: analysis.output, contextTrace, informationWarnings: analysis.informationWarnings || [] });
+    return sendJson(response, 200, { name: analysis.promptName || '', summary: analysis.summary || '', input: analysis.input || '', output: analysis.output || '', suggestedCategoryIds: matchedCategories.categoryIds, informationWarnings: analysis.informationWarnings || [] });
   }
   if (request.method === 'GET' && path === '/api/categories') return sendJson(response, 200, categories.list());
   if (request.method === 'GET' && path === '/api/prompts') return sendJson(response, 200, prompts.list());
@@ -143,13 +141,11 @@ async function handleApi(request, response, url) {
       output: validatePromptText(body.output, 'output'),
       content: validateText(body.content, 'content'),
       categoryIds: Array.isArray(body.categoryIds) ? body.categoryIds : [],
-      contextTrace: body.contextTrace || {},
-      traceStatus: typeof body.traceStatus === 'string' && ['not_analyzed', 'completed', 'warning', 'stale', 'unavailable'].includes(body.traceStatus) ? body.traceStatus : 'not_analyzed',
-      traceAnalyzedAt: typeof body.traceAnalyzedAt === 'string' ? body.traceAnalyzedAt : null,
-      traceContentHash: typeof body.traceContentHash === 'string' ? body.traceContentHash : null
+      informationWarnings: validateInformationWarnings(body.informationWarnings),
+      informationReviewStatus: typeof body.informationReviewStatus === 'string' && ['not_analyzed', 'clear', 'warning', 'stale', 'unavailable'].includes(body.informationReviewStatus) ? body.informationReviewStatus : 'not_analyzed',
+      informationReviewedAt: typeof body.informationReviewedAt === 'string' ? body.informationReviewedAt : null,
+      informationReviewContentHash: typeof body.informationReviewContentHash === 'string' ? body.informationReviewContentHash : null
     };
-    const traceData = validateTrace({ ...data.contextTrace, informationWarnings: body.informationWarnings });
-    data.contextTrace = { ...traceData.trace, informationWarnings: traceData.warnings };
     if (!data.categoryIds.length) throw Object.assign(new Error('At least one category is required'), { status: 400 });
     if (request.method === 'POST') {
       data.id = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : `prm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

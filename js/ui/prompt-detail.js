@@ -109,26 +109,34 @@ export function renderPromptDetail({ prompt, categories, onCopy, onEdit, onDelet
   code.textContent = prompt.content;
   promptSection.append(promptHeading, code);
 
-  const traceSection = document.createElement('section');
-  traceSection.className = 'detail-section context-trace-detail';
-  const traceHeading = document.createElement('h3'); traceHeading.textContent = 'Context & Privacy Trace';
-  traceSection.append(traceHeading);
-  if (prompt.traceStatus === 'not_analyzed' || !prompt.contextTrace || !Object.keys(prompt.contextTrace).length) {
-    const emptyTrace = document.createElement('p'); emptyTrace.textContent = 'Not analyzed'; traceSection.append(emptyTrace);
-  } else {
-    const cards = document.createElement('div'); cards.className = 'context-trace__cards';
-    for (const type of ['project', 'organization', 'personal']) {
-      const item = prompt.contextTrace[type] || { status: 'not_required', missingItems: [] };
-      const card = document.createElement('article'); card.className = `context-trace__card context-trace__card--${item.status}`;
-      const title = document.createElement('strong'); title.textContent = `${type} context`;
-      const status = document.createElement('span'); status.textContent = item.status.replace('_', ' '); card.append(title, status);
-      (item.missingItems || []).forEach((missing) => { const line = document.createElement('div'); line.textContent = `• ${missing}`; card.append(line); });
-      cards.append(card);
-    }
-    traceSection.append(cards);
-    const warnings = prompt.informationWarnings || prompt.contextTrace.informationWarnings || [];
-    warnings.forEach((warning) => { const banner = document.createElement('p'); banner.className = 'privacy-warning'; banner.textContent = `${warning.label}${warning.evidence ? ` — ${warning.evidence}` : ''}`; traceSection.append(banner); });
-    const analyzedAt = document.createElement('p'); analyzedAt.className = 'detail-meta'; analyzedAt.textContent = `Status: ${prompt.traceStatus}${prompt.traceAnalyzedAt ? ` · ${formatDateTime(prompt.traceAnalyzedAt)}` : ''}`; traceSection.append(analyzedAt);
+  const warnings = prompt.informationWarnings || [];
+  const informationSection = document.createElement('section');
+  informationSection.className = 'detail-section information-review';
+  informationSection.hidden = !warnings.length && prompt.informationReviewStatus !== 'stale';
+  const informationHeading = document.createElement('h3'); informationHeading.textContent = 'Information to review';
+  const informationCards = document.createElement('div'); informationCards.className = 'information-review__cards';
+  const groups = { credential: 'Possible credential', personal: 'Personal identifiers', organization: 'Organization references', project: 'Project references' };
+  const descriptions = { credential: 'Authentication or secret information', personal: 'Name, employee ID and email', organization: 'Company reference', project: 'Private project identifier' };
+  const icons = { credential: '🔑', personal: '👤', organization: '🏢', project: '📁' };
+  for (const type of ['credential', 'personal', 'organization', 'project']) {
+    const grouped = warnings.filter((warning) => warning.type === type);
+    if (!grouped.length) continue;
+    const card = document.createElement('article'); card.className = 'information-review__card';
+    const heading = document.createElement('div'); heading.className = 'information-review__heading';
+    const label = document.createElement('strong'); label.textContent = `${icons[type]} ${grouped[0].title || groups[type]}`;
+    const badge = document.createElement('span'); badge.className = 'information-review__badge'; badge.textContent = 'Review';
+    heading.append(label, badge);
+    const description = document.createElement('p'); description.textContent = descriptions[type];
+    card.append(heading, description);
+    grouped.slice(0, 3).forEach((warning) => { const evidence = document.createElement('p'); evidence.className = 'information-review__evidence'; evidence.textContent = `Detected: ${(warning.detectedValues || [warning.evidence]).join(' · ') || '[REDACTED]'}`; card.append(evidence); });
+    if (grouped.length > 3) { const more = document.createElement('p'); more.className = 'information-review__more'; more.textContent = `+ ${grouped.length - 3} more references`; card.append(more); }
+    informationCards.append(card);
+  }
+  informationSection.append(informationHeading, informationCards);
+  if (prompt.informationReviewStatus === 'stale') {
+    const stale = document.createElement('p'); stale.className = 'detail-meta'; stale.textContent = 'Information review is out of date.';
+    const reviewButton = document.createElement('button'); reviewButton.className = 'button button--secondary'; reviewButton.type = 'button'; reviewButton.textContent = 'Re-analyze prompt'; reviewButton.addEventListener('click', () => onEdit(prompt));
+    informationSection.append(stale, reviewButton);
   }
 
   const footer = document.createElement('footer');
@@ -144,6 +152,6 @@ export function renderPromptDetail({ prompt, categories, onCopy, onEdit, onDelet
   copyButton.append(createIcon('copy'), document.createTextNode('Copy prompt'));
   copyButton.addEventListener('click', () => onCopy(prompt, copyButton));
   footer.append(meta, copyButton);
-  detail.append(mobileBar, topbar, title, tags, summarySection, io, promptSection, traceSection, footer);
+  detail.append(mobileBar, topbar, title, tags, summarySection, io, promptSection, informationSection, footer);
   container.append(detail);
 }

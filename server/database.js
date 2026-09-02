@@ -5,7 +5,7 @@ import { seedCategories, seedPrompts } from '../js/data/seed.js';
 
 const GREEN_THEME_MIGRATION = { id: 'green-theme-001', version: 1 };
 const PROMPT_INPUT_OUTPUT_MIGRATION = { id: 'prompt-input-output-001' };
-const PROMPT_CONTEXT_TRACE_MIGRATION = { id: 'prompt-context-trace-001' };
+const INFORMATION_REVIEW_MIGRATION = { id: 'replace-context-trace-with-information-review-001' };
 const SAMPLE_CATEGORY_COLORS = {
   'cat-coding': '#15803d',
   'cat-testing': '#059669',
@@ -46,7 +46,7 @@ export function initializeDatabase(filename) {
     );
   `);
   runPromptInputOutputMigration(db);
-  runPromptContextTraceMigration(db);
+  runInformationReviewMigration(db);
   const categoryColumns = db.prepare('PRAGMA table_info(categories)').all();
   if (!categoryColumns.some((column) => column.name === 'updated_at')) {
     db.exec('ALTER TABLE categories ADD COLUMN updated_at TEXT');
@@ -57,12 +57,62 @@ export function initializeDatabase(filename) {
   return db;
 }
 
-function runPromptContextTraceMigration(db) {
-  const columns = new Set(db.prepare('PRAGMA table_info(prompts)').all().map((column) => column.name));
-  if (!columns.has('context_trace_json')) db.exec("ALTER TABLE prompts ADD COLUMN context_trace_json TEXT NOT NULL DEFAULT '{}'");
-  if (!columns.has('trace_status')) db.exec("ALTER TABLE prompts ADD COLUMN trace_status TEXT NOT NULL DEFAULT 'not_analyzed'");
-  if (!columns.has('trace_analyzed_at')) db.exec('ALTER TABLE prompts ADD COLUMN trace_analyzed_at TEXT');
-  if (!columns.has('trace_content_hash')) db.exec('ALTER TABLE prompts ADD COLUMN trace_content_hash TEXT');
+function runInformationReviewMigration(db) {
+  db.transaction(() => {
+    const columns = new Set(db.prepare('PRAGMA table_info(prompts)').all().map((column) => column.name));
+    const legacyColumns = ['context_trace_json', 'trace_status', 'trace_analyzed_at', 'trace_content_hash'];
+    const hasLegacyColumns = legacyColumns.some((column) => columns.has(column));
+    if (!columns.has('information_warnings_json')) db.exec("ALTER TABLE prompts ADD COLUMN information_warnings_json TEXT NOT NULL DEFAULT '[]'");
+    if (!columns.has('information_review_status')) db.exec("ALTER TABLE prompts ADD COLUMN information_review_status TEXT NOT NULL DEFAULT 'not_analyzed'");
+    if (!columns.has('information_reviewed_at')) db.exec('ALTER TABLE prompts ADD COLUMN information_reviewed_at TEXT');
+    if (!columns.has('information_review_content_hash')) db.exec('ALTER TABLE prompts ADD COLUMN information_review_content_hash TEXT');
+
+    if (hasLegacyColumns) {
+      const migrateWarnings = db.prepare('UPDATE prompts SET information_warnings_json = ? WHERE id = ?');
+      for (const row of db.prepare('SELECT id, context_trace_json FROM prompts').all()) {
+        let warnings = [];
+        try {
+          const legacy = row.context_trace_json ? JSON.parse(row.context_trace_json) : null;
+          warnings = Array.isArray(legacy?.informationWarnings) ? legacy.informationWarnings : [];
+        } catch { /* Ignore malformed legacy trace data. */ }
+        migrateWarnings.run(JSON.stringify(warnings), row.id);
+      }
+      rebuildPromptsWithoutLegacyColumns(db);
+    }
+  })();
+}
+
+function rebuildPromptsWithoutLegacyColumns(db) {
+  db.exec(`
+      CREATE TABLE prompts_new (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        input_description TEXT NOT NULL DEFAULT '',
+        output_description TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        information_warnings_json TEXT NOT NULL DEFAULT '[]',
+        information_review_status TEXT NOT NULL DEFAULT 'not_analyzed',
+        information_reviewed_at TEXT,
+        information_review_content_hash TEXT
+      );
+      INSERT INTO prompts_new (id, name, summary, input_description, output_description, content, created_at, updated_at, information_warnings_json, information_review_status, information_reviewed_at, information_review_content_hash)
+        SELECT id, name, summary, input_description, output_description, content, created_at, updated_at, information_warnings_json, information_review_status, information_reviewed_at, information_review_content_hash FROM prompts;
+      CREATE TABLE prompt_categories_new (
+        prompt_id TEXT NOT NULL,
+        category_id TEXT NOT NULL,
+        PRIMARY KEY (prompt_id, category_id),
+        FOREIGN KEY (prompt_id) REFERENCES prompts_new(id) ON DELETE CASCADE,
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+      );
+      INSERT INTO prompt_categories_new SELECT prompt_id, category_id FROM prompt_categories;
+      DROP TABLE prompt_categories;
+      DROP TABLE prompts;
+      ALTER TABLE prompts_new RENAME TO prompts;
+      ALTER TABLE prompt_categories_new RENAME TO prompt_categories;
+  `);
 }
 
 function runPromptInputOutputMigration(db) {
