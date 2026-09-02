@@ -20,6 +20,7 @@ const store = createStore({
   prompts: [],
   categories: [],
   workflows: [],
+  workflowStatus: 'loading',
   activeView: 'prompts',
   selectedWorkflowId: null,
   workflowSearch: '',
@@ -153,10 +154,31 @@ function openCreatePrompt(afterCreate) {
   });
 }
 
-async function refreshWorkflows() { store.setState({ workflows: await getWorkflows() }); }
+async function refreshWorkflows(selectFirst = false) {
+  store.setState({ workflowStatus: 'loading' });
+  try {
+    const workflows = await getWorkflows();
+    const state = store.getState();
+    const selectedWorkflowId = workflows.some((workflow) => workflow.id === state.selectedWorkflowId)
+      ? state.selectedWorkflowId : (selectFirst ? workflows[0]?.id || null : null);
+    store.setState({ workflows, workflowStatus: 'ready', selectedWorkflowId, selectedWorkflow: null });
+    if (selectedWorkflowId && (selectFirst || state.activeView === 'workflow-detail')) await viewWorkflow(selectedWorkflowId);
+  } catch (error) {
+    store.setState({ workflows: [], selectedWorkflowId: null, selectedWorkflow: null, workflowStatus: 'error' });
+    throw error;
+  }
+}
 function showPrompts() { store.setState({ activeView: 'prompts' }); }
-function showWorkflows() { store.setState({ activeView: 'workflows', selectedWorkflowId: null }); refreshWorkflows().catch((error) => showToast(error.message, 'error')); }
-async function viewWorkflow(id) { const workflow = await getWorkflow(id); store.setState({ activeView: 'workflow-detail', selectedWorkflowId: id, selectedWorkflow: workflow }); }
+function showWorkflows() { store.setState({ activeView: 'workflows', selectedWorkflowId: null, selectedWorkflow: null }); refreshWorkflows(true).catch(() => {}); }
+async function viewWorkflow(id) {
+  try {
+    const workflow = await getWorkflow(id);
+    store.setState({ activeView: 'workflow-detail', selectedWorkflowId: id, selectedWorkflow: workflow });
+  } catch (error) {
+    if (error.status === 404) { showWorkflows(); return; }
+    showToast(error.message, 'error');
+  }
+}
 function openCreateWorkflow() { store.setState({ activeView: 'workflow-builder' }); openWorkflowBuilder({ prompts: store.getState().prompts, workflow: null, onCancel: showWorkflows, onCreatePrompt: (done) => openCreatePrompt(done), onSave: async (data) => { await createWorkflow(data); await refreshWorkflows(); showToast('Workflow created'); showWorkflows(); } }); }
 async function openEditWorkflow(id) { const workflow = await getWorkflow(id); store.setState({ activeView: 'workflow-builder' }); openWorkflowBuilder({ prompts: store.getState().prompts, workflow, onCancel: () => viewWorkflow(id), onCreatePrompt: (done) => openCreatePrompt(done), onSave: async (data) => { await updateWorkflow(id, data); await refreshWorkflows(); showToast('Workflow updated'); viewWorkflow(id); } }); }
 async function removeWorkflow(workflow) { const confirmation = window.prompt(`Type exactly "${workflow.name}" to delete this workflow:`); if (confirmation?.trim() !== workflow.name) return; await deleteWorkflow(workflow.id); showToast('Workflow deleted'); showWorkflows(); }
@@ -201,7 +223,7 @@ function closeSidebar() {
 function render(state) {
   const workflowMode = state.activeView !== 'prompts';
   document.querySelector('.list-header').hidden = workflowMode;
-  document.querySelector('.workflow-list').hidden = !workflowMode || state.activeView !== 'workflows';
+  document.querySelector('.workflow-list').hidden = !workflowMode || state.activeView === 'workflow-builder';
   document.querySelector('#prompt-list').hidden = workflowMode;
   document.querySelector('#prompt-detail').hidden = workflowMode;
   document.querySelector('#workflow-detail').hidden = state.activeView !== 'workflow-detail';
@@ -210,7 +232,7 @@ function render(state) {
   document.querySelector('#workflows-button').classList.toggle('nav-item--active', workflowMode);
   document.querySelector('#workflows-count').textContent = state.workflows.length;
   if (workflowMode) {
-    renderWorkflowList({ workflows: state.workflows, search: state.workflowSearch, onNew: openCreateWorkflow, onView: viewWorkflow, onEdit: openEditWorkflow, onDelete: removeWorkflow });
+    renderWorkflowList({ workflows: state.workflows, search: state.workflowSearch, selectedWorkflowId: state.selectedWorkflowId, status: state.workflowStatus, onNew: openCreateWorkflow, onView: viewWorkflow, onEdit: openEditWorkflow, onDelete: removeWorkflow });
     renderWorkflowDetail({ workflow: state.selectedWorkflow, categories: state.categories, onEdit: () => openEditWorkflow(state.selectedWorkflowId), onDelete: () => removeWorkflow(state.selectedWorkflow), onPrompt: (promptId) => { showPrompts(); selectPrompt(promptId); } });
     return;
   }
@@ -269,5 +291,5 @@ store.subscribe(render);
 render(store.getState());
 
 Promise.all([getPrompts(), getCategories()])
-  .then(async ([prompts, categories]) => store.setState({ prompts, categories, workflows: await getWorkflows(), selectedPromptId: prompts[0]?.id || null }))
+  .then(async ([prompts, categories]) => { store.setState({ prompts, categories, selectedPromptId: prompts[0]?.id || null }); await refreshWorkflows(); })
   .catch((error) => showToast(error.message, 'error'));

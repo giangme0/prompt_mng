@@ -16,7 +16,7 @@ function workflowFromRows(rows) {
 }
 
 export function createWorkflowRepository(db) {
-  const listQuery = db.prepare(`SELECT w.id, w.name, w.created_at, w.updated_at, COUNT(ws.id) AS step_count, GROUP_CONCAT(DISTINCT p.name) AS prompt_names, GROUP_CONCAT(DISTINCT c.name) AS category_names FROM workflows w LEFT JOIN workflow_steps ws ON ws.workflow_id = w.id LEFT JOIN prompts p ON p.id = ws.prompt_id LEFT JOIN prompt_categories pc ON pc.prompt_id = p.id LEFT JOIN categories c ON c.id = pc.category_id GROUP BY w.id ORDER BY w.updated_at DESC`);
+  const listQuery = db.prepare(`SELECT w.id, w.name, w.created_at, w.updated_at, COUNT(DISTINCT ws.id) AS step_count, GROUP_CONCAT(DISTINCT p.name) AS prompt_names, GROUP_CONCAT(DISTINCT c.name) AS category_names FROM workflows w LEFT JOIN workflow_steps ws ON ws.workflow_id = w.id LEFT JOIN prompts p ON p.id = ws.prompt_id LEFT JOIN prompt_categories pc ON pc.prompt_id = p.id LEFT JOIN categories c ON c.id = pc.category_id GROUP BY w.id ORDER BY w.updated_at DESC`);
   const detailQuery = db.prepare(`SELECT w.id AS workflow_id, w.name AS workflow_name, w.created_at, w.updated_at, ws.id AS step_id, ws.step_order, ws.prompt_id, p.name AS prompt_name, p.summary AS prompt_summary, p.input_description, p.output_description, p.content, GROUP_CONCAT(pc.category_id) AS category_ids FROM workflows w LEFT JOIN workflow_steps ws ON ws.workflow_id = w.id LEFT JOIN prompts p ON p.id = ws.prompt_id LEFT JOIN prompt_categories pc ON pc.prompt_id = p.id WHERE w.id = ? GROUP BY w.id, ws.id ORDER BY ws.step_order`);
   const promptExists = db.prepare('SELECT 1 FROM prompts WHERE id = ?');
   const insertWorkflow = db.prepare('INSERT INTO workflows (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');
