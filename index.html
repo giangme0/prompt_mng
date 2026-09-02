@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Organize, search, edit and copy reusable prompts from a focused local workspace."
+    />
+    <meta name="theme-color" content="#5b5ce2" />
+    <title>PromptVault</title>
+    <link rel="stylesheet" href="./css/variables.css" />
+    <link rel="stylesheet" href="./css/reset.css" />
+    <link rel="stylesheet" href="./css/layout.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/responsive.css" />
+  </head>
+  <body>
+    <div class="ambient ambient--one" aria-hidden="true"></div>
+    <div class="ambient ambient--two" aria-hidden="true"></div>
+
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Prompt navigation">
+        <div class="brand">
+          <div class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M12 2.75l1.62 5.05a3.9 3.9 0 0 0 2.53 2.53L21.2 12l-5.05 1.62a3.9 3.9 0 0 0-2.53 2.53L12 21.2l-1.62-5.05a3.9 3.9 0 0 0-2.53-2.53L2.8 12l5.05-1.67a3.9 3.9 0 0 0 2.53-2.53L12 2.75z" />
+            </svg>
+          </div>
+          <div>
+            <strong>PromptVault</strong>
+            <span>Personal prompt library</span>
+          </div>
+        </div>
+
+        <nav class="sidebar__content">
+          <p class="eyebrow">Workspace</p>
+          <button class="nav-item nav-item--active" id="all-prompts-button" type="button">
+            <span class="nav-item__leading">
+              <span class="icon-slot" data-icon="library" aria-hidden="true"></span>
+              All prompts
+            </span>
+            <span class="count-badge" id="all-prompts-count">0</span>
+          </button>
+
+          <div class="sidebar__section-header">
+            <p class="eyebrow">Categories</p>
+            <button class="icon-button icon-button--small" id="clear-category-filters" type="button" aria-label="Clear category filters" title="Clear filters">
+              <span class="icon-slot" data-icon="reset" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="category-nav" id="category-nav"></div>
+        </nav>
+
+        <div class="sidebar__footer">
+          <div class="storage-note">
+            <span class="storage-note__icon icon-slot" data-icon="shield" aria-hidden="true"></span>
+            <div>
+              <strong>Stored locally</strong>
+              <span>Your prompts stay in this browser.</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="sidebar-scrim" id="sidebar-scrim" aria-hidden="true"></div>
+
+      <main class="workspace">
+        <section class="list-pane" aria-label="Prompt list">
+          <header class="list-header">
+            <div class="list-header__top">
+              <div class="title-row">
+                <button class="icon-button mobile-menu-button" id="mobile-menu-button" type="button" aria-label="Open navigation">
+                  <span class="icon-slot" data-icon="menu" aria-hidden="true"></span>
+                </button>
+                <div>
+                  <p class="eyebrow">Library</p>
+                  <h1>Prompts</h1>
+                </div>
+              </div>
+              <button class="button button--primary" id="new-prompt-button" type="button">
+                <span class="icon-slot" data-icon="plus" aria-hidden="true"></span>
+                New prompt
+              </button>
+            </div>
+
+            <div class="search-control">
+              <span class="search-control__icon icon-slot" data-icon="search" aria-hidden="true"></span>
+              <label class="sr-only" for="prompt-search">Search prompts</label>
+              <input id="prompt-search" type="search" placeholder="Search prompts..." autocomplete="off" />
+              <kbd aria-hidden="true">/</kbd>
+            </div>
+
+            <div class="list-toolbar">
+              <p id="result-count" aria-live="polite">0 prompts</p>
+              <label class="sort-control">
+                <span class="sr-only">Sort prompts</span>
+                <select id="sort-select">
+                  <option value="updated-desc">Recently updated</option>
+                  <option value="name-asc">Name A–Z</option>
+                  <option value="created-desc">Newest first</option>
+                  <option value="created-asc">Oldest first</option>
+                </select>
+                <span class="icon-slot" data-icon="chevron-down" aria-hidden="true"></span>
+              </label>
+            </div>
+
+            <div class="active-filters" id="active-filters" aria-label="Active category filters"></div>
+          </header>
+
+          <div class="prompt-list" id="prompt-list"></div>
+        </section>
+
+        <section class="detail-pane" id="detail-pane" aria-label="Prompt details">
+          <div id="prompt-detail"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="modal-root"></div>
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

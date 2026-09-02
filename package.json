@@ -1,0 +1,14 @@
+{
+  "name": "prompt_mng",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A professional prompt library built with HTML, CSS and Vanilla JavaScript.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
