@@ -139,6 +139,7 @@ async function copyPrompt(prompt, button) {
 }
 
 function openCreatePrompt(afterCreate) {
+  const onCreated = typeof afterCreate === 'function' ? afterCreate : null;
   const state = store.getState();
   openPromptForm({
     categories: state.categories,
@@ -148,7 +149,7 @@ function openCreatePrompt(afterCreate) {
       const saved = await apiCreatePrompt(prompt);
       store.setState({ prompts: [saved, ...store.getState().prompts], selectedPromptId: saved.id });
       showToast('Prompt created');
-      afterCreate?.(saved);
+      onCreated?.(saved);
       return true;
     }
   });
