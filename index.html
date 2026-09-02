@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="./css/layout.css" />
     <link rel="stylesheet" href="./css/components.css" />
     <link rel="stylesheet" href="./css/responsive.css" />
+    <link rel="stylesheet" href="./css/workflow.css" />
   </head>
   <body>
     <div class="ambient ambient--one" aria-hidden="true"></div>
@@ -41,6 +42,10 @@
               All prompts
             </span>
             <span class="count-badge" id="all-prompts-count">0</span>
+          </button>
+          <button class="nav-item" id="workflows-button" type="button">
+            <span class="nav-item__leading"><span class="icon-slot" data-icon="layers" aria-hidden="true"></span>Workflows</span>
+            <span class="count-badge" id="workflows-count">0</span>
           </button>
 
           <div class="sidebar__section-header">
@@ -113,10 +118,13 @@
           </header>
 
           <div class="prompt-list" id="prompt-list"></div>
+          <div class="workflow-list" id="workflow-list" hidden></div>
         </section>
 
         <section class="detail-pane" id="detail-pane" aria-label="Prompt details">
           <div id="prompt-detail"></div>
+          <div id="workflow-detail"></div>
+          <div id="workflow-builder" hidden></div>
         </section>
       </main>
     </div>

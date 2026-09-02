@@ -4,7 +4,7 @@ async function request(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error?.message || 'Request failed');
+  if (!response.ok) { const error = new Error(body.error?.message || 'Request failed'); error.status = response.status; error.workflowCount = body.error?.workflowCount; throw error; }
   return body;
 }
 
@@ -17,3 +17,8 @@ export const createCategory = (data) => request('/api/categories', { method: 'PO
 export const updateCategory = (id, data) => request(`/api/categories/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteCategory = (id) => request(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const analyzePrompt = (content, options = {}) => request('/api/llm/analyze-prompt', { method: 'POST', body: JSON.stringify({ content }), ...options });
+export const getWorkflows = () => request('/api/workflows');
+export const getWorkflow = (id) => request(`/api/workflows/${encodeURIComponent(id)}`);
+export const createWorkflow = (data) => request('/api/workflows', { method: 'POST', body: JSON.stringify(data) });
+export const updateWorkflow = (id, data) => request(`/api/workflows/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteWorkflow = (id) => request(`/api/workflows/${encodeURIComponent(id)}`, { method: 'DELETE' });

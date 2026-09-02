@@ -6,6 +6,7 @@ import { seedCategories, seedPrompts } from '../js/data/seed.js';
 const GREEN_THEME_MIGRATION = { id: 'green-theme-001', version: 1 };
 const PROMPT_INPUT_OUTPUT_MIGRATION = { id: 'prompt-input-output-001' };
 const INFORMATION_REVIEW_MIGRATION = { id: 'replace-context-trace-with-information-review-001' };
+const PROMPT_WORKFLOW_MIGRATION = { id: 'prompt-workflow-001' };
 const SAMPLE_CATEGORY_COLORS = {
   'cat-coding': '#15803d',
   'cat-testing': '#059669',
@@ -47,6 +48,7 @@ export function initializeDatabase(filename) {
   `);
   runPromptInputOutputMigration(db);
   runInformationReviewMigration(db);
+  runPromptWorkflowMigration(db);
   const categoryColumns = db.prepare('PRAGMA table_info(categories)').all();
   if (!categoryColumns.some((column) => column.name === 'updated_at')) {
     db.exec('ALTER TABLE categories ADD COLUMN updated_at TEXT');
@@ -55,6 +57,26 @@ export function initializeDatabase(filename) {
   seedIfEmpty(db);
   runGreenThemeMigration(db);
   return db;
+}
+
+function runPromptWorkflowMigration(db) {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS workflows (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS workflow_steps (
+        id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, prompt_id TEXT NOT NULL,
+        step_order INTEGER NOT NULL, created_at TEXT NOT NULL,
+        UNIQUE (workflow_id, step_order),
+        FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE,
+        FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE RESTRICT
+      );
+      CREATE INDEX IF NOT EXISTS idx_workflow_steps_workflow_id ON workflow_steps(workflow_id);
+      CREATE INDEX IF NOT EXISTS idx_workflow_steps_prompt_id ON workflow_steps(prompt_id);
+    `);
+  })();
 }
 
 function runInformationReviewMigration(db) {

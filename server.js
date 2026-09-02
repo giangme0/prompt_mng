@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { initializeDatabase } from './server/database.js';
 import { createCategoryRepository } from './server/category-repository.js';
 import { createPromptRepository } from './server/prompt-repository.js';
+import { createWorkflowRepository } from './server/workflow-repository.js';
 import { analyzePrompt, mapSuggestedCategories } from './server/services/llm-service.js';
 import { detectInformationWarnings } from './server/services/information-review.js';
 
@@ -16,6 +17,7 @@ const databasePath = process.env.DATABASE_PATH || join('data', 'prompt_mng.sqlit
 const db = initializeDatabase(resolve(ROOT, databasePath));
 const categories = createCategoryRepository(db);
 const prompts = createPromptRepository(db);
+const workflows = createWorkflowRepository(db);
 
 console.log(`[server] Database: ${resolve(ROOT, databasePath)}`);
 
@@ -88,6 +90,13 @@ function validateCategoryBody(body) {
   return { name, color };
 }
 
+function validateWorkflowBody(body) {
+  const name = validateText(body.name, 'Workflow name');
+  if (name.length > 100) throw Object.assign(new Error('Workflow name must be 100 characters or fewer'), { status: 400 });
+  if (!Array.isArray(body.steps) || !body.steps.length) throw Object.assign(new Error('Workflow must contain at least one step'), { status: 400 });
+  return { name, steps: body.steps };
+}
+
 async function handleApi(request, response, url) {
   const path = url.pathname;
   if (request.method === 'POST' && path === '/api/llm/analyze-prompt') {
@@ -106,6 +115,23 @@ async function handleApi(request, response, url) {
   }
   if (request.method === 'GET' && path === '/api/categories') return sendJson(response, 200, categories.list());
   if (request.method === 'GET' && path === '/api/prompts') return sendJson(response, 200, prompts.list());
+  if (request.method === 'GET' && path === '/api/workflows') return sendJson(response, 200, workflows.list());
+
+  const workflowMatch = path.match(/^\/api\/workflows\/([^/]+)$/);
+  if (request.method === 'GET' && workflowMatch) {
+    const result = workflows.get(workflowMatch[1]);
+    return result ? sendJson(response, 200, result) : errorResponse(response, 404, 'Workflow not found');
+  }
+  if (request.method === 'POST' && path === '/api/workflows' || request.method === 'PUT' && workflowMatch) {
+    const data = validateWorkflowBody(await readJson(request));
+    if (request.method === 'POST') data.id = `wf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const result = request.method === 'POST' ? workflows.create(data) : workflows.update(workflowMatch[1], data);
+    return result ? sendJson(response, request.method === 'POST' ? 201 : 200, result) : errorResponse(response, 404, 'Workflow not found');
+  }
+  if (request.method === 'DELETE' && workflowMatch) {
+    const result = workflows.delete(workflowMatch[1]);
+    return result ? sendJson(response, 200, result) : errorResponse(response, 404, 'Workflow not found');
+  }
 
   if (request.method === 'POST' && path === '/api/categories') {
     const body = await readJson(request);
@@ -129,6 +155,8 @@ async function handleApi(request, response, url) {
 
   const promptMatch = path.match(/^\/api\/prompts\/([^/]+)$/);
   if (request.method === 'DELETE' && promptMatch) {
+    const workflowCount = workflows.countByPrompt(promptMatch[1]);
+    if (workflowCount) return sendJson(response, 409, { error: { message: `This prompt is used by ${workflowCount} workflows and cannot be deleted`, workflowCount } });
     if (!prompts.delete(promptMatch[1])) return errorResponse(response, 404, 'Prompt not found');
     return sendJson(response, 200, { success: true });
   }
@@ -200,7 +228,7 @@ const server = http.createServer(async (request, response) => {
         const message = status === 400 ? error.message : status === 503 ? 'AI analysis is not configured' : status === 504 ? 'LLM request timed out' : status === 422 ? 'Unable to analyze the prompt' : status === 502 ? 'Unable to reach the LLM provider' : 'Unable to analyze the prompt';
         return errorResponse(response, status, message);
       }
-      return errorResponse(response, error.status || (error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 409 : 500), error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 'Category name already exists' : error.message || 'Server error');
+      return errorResponse(response, error.status || (error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 409 : 500), error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? (request.url.includes('/workflows') ? 'Workflow name already exists' : 'Category name already exists') : error.message || 'Server error');
     }
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     response.end('Not found');

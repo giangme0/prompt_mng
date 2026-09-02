@@ -1,6 +1,6 @@
 import { getVisiblePrompts } from './modules/filters.js';
 import { createPrompt, updatePrompt } from './modules/prompts.js';
-import { createCategory, createPrompt as apiCreatePrompt, deleteCategory, deletePrompt, getCategories, getPrompts, updateCategory, updatePrompt as apiUpdatePrompt } from './services/api.js';
+import { createCategory, createPrompt as apiCreatePrompt, deleteCategory, deletePrompt, getCategories, getPrompts, updateCategory, updatePrompt as apiUpdatePrompt, getWorkflows, getWorkflow, createWorkflow, updateWorkflow, deleteWorkflow } from './services/api.js';
 import { createStore } from './state/store.js';
 import { createId } from './utils/id.js';
 import { hydrateIcons, createIcon } from './ui/icons.js';
@@ -12,10 +12,17 @@ import { renderActiveFilters, renderSidebar } from './ui/sidebar.js';
 import { showToast } from './ui/toast.js';
 import { openCategoryManager } from './ui/category-manager.js';
 import { CATEGORY_COLORS } from './modules/categories.js';
+import { renderWorkflowList } from './ui/workflow-list.js';
+import { renderWorkflowDetail } from './ui/workflow-detail.js';
+import { openWorkflowBuilder } from './ui/workflow-builder.js';
 
 const store = createStore({
   prompts: [],
   categories: [],
+  workflows: [],
+  activeView: 'prompts',
+  selectedWorkflowId: null,
+  workflowSearch: '',
   selectedPromptId: null,
   filters: {
     categoryIds: [],
@@ -130,7 +137,7 @@ async function copyPrompt(prompt, button) {
   }
 }
 
-function openCreatePrompt() {
+function openCreatePrompt(afterCreate) {
   const state = store.getState();
   openPromptForm({
     categories: state.categories,
@@ -140,10 +147,19 @@ function openCreatePrompt() {
       const saved = await apiCreatePrompt(prompt);
       store.setState({ prompts: [saved, ...store.getState().prompts], selectedPromptId: saved.id });
       showToast('Prompt created');
+      afterCreate?.(saved);
       return true;
     }
   });
 }
+
+async function refreshWorkflows() { store.setState({ workflows: await getWorkflows() }); }
+function showPrompts() { store.setState({ activeView: 'prompts' }); }
+function showWorkflows() { store.setState({ activeView: 'workflows', selectedWorkflowId: null }); refreshWorkflows().catch((error) => showToast(error.message, 'error')); }
+async function viewWorkflow(id) { const workflow = await getWorkflow(id); store.setState({ activeView: 'workflow-detail', selectedWorkflowId: id, selectedWorkflow: workflow }); }
+function openCreateWorkflow() { store.setState({ activeView: 'workflow-builder' }); openWorkflowBuilder({ prompts: store.getState().prompts, workflow: null, onCancel: showWorkflows, onCreatePrompt: (done) => openCreatePrompt(done), onSave: async (data) => { await createWorkflow(data); await refreshWorkflows(); showToast('Workflow created'); showWorkflows(); } }); }
+async function openEditWorkflow(id) { const workflow = await getWorkflow(id); store.setState({ activeView: 'workflow-builder' }); openWorkflowBuilder({ prompts: store.getState().prompts, workflow, onCancel: () => viewWorkflow(id), onCreatePrompt: (done) => openCreatePrompt(done), onSave: async (data) => { await updateWorkflow(id, data); await refreshWorkflows(); showToast('Workflow updated'); viewWorkflow(id); } }); }
+async function removeWorkflow(workflow) { const confirmation = window.prompt(`Type exactly "${workflow.name}" to delete this workflow:`); if (confirmation?.trim() !== workflow.name) return; await deleteWorkflow(workflow.id); showToast('Workflow deleted'); showWorkflows(); }
 
 function openEditPrompt(prompt) {
   openPromptForm({
@@ -183,6 +199,21 @@ function closeSidebar() {
 }
 
 function render(state) {
+  const workflowMode = state.activeView !== 'prompts';
+  document.querySelector('.list-header').hidden = workflowMode;
+  document.querySelector('.workflow-list').hidden = !workflowMode || state.activeView !== 'workflows';
+  document.querySelector('#prompt-list').hidden = workflowMode;
+  document.querySelector('#prompt-detail').hidden = workflowMode;
+  document.querySelector('#workflow-detail').hidden = state.activeView !== 'workflow-detail';
+  document.querySelector('#workflow-builder').hidden = state.activeView !== 'workflow-builder';
+  document.querySelector('#all-prompts-button').classList.toggle('nav-item--active', !workflowMode);
+  document.querySelector('#workflows-button').classList.toggle('nav-item--active', workflowMode);
+  document.querySelector('#workflows-count').textContent = state.workflows.length;
+  if (workflowMode) {
+    renderWorkflowList({ workflows: state.workflows, search: state.workflowSearch, onNew: openCreateWorkflow, onView: viewWorkflow, onEdit: openEditWorkflow, onDelete: removeWorkflow });
+    renderWorkflowDetail({ workflow: state.selectedWorkflow, categories: state.categories, onEdit: () => openEditWorkflow(state.selectedWorkflowId), onDelete: () => removeWorkflow(state.selectedWorkflow), onPrompt: (promptId) => { showPrompts(); selectPrompt(promptId); } });
+    return;
+  }
   const visiblePrompts = getVisiblePrompts(state);
   const selectedPrompt = state.prompts.find((prompt) => prompt.id === state.selectedPromptId) || null;
   resultCount.textContent = `${visiblePrompts.length} ${visiblePrompts.length === 1 ? 'prompt' : 'prompts'}`;
@@ -209,6 +240,8 @@ function render(state) {
 }
 
 document.querySelector('#new-prompt-button').addEventListener('click', openCreatePrompt);
+document.querySelector('#workflows-button').addEventListener('click', showWorkflows);
+document.querySelector('#all-prompts-button').addEventListener('click', showPrompts);
 document.querySelector('#mobile-menu-button').addEventListener('click', openSidebar);
 document.querySelector('#sidebar-scrim').addEventListener('click', closeSidebar);
 clearFiltersButton.addEventListener('click', clearCategoryFilters);
@@ -236,5 +269,5 @@ store.subscribe(render);
 render(store.getState());
 
 Promise.all([getPrompts(), getCategories()])
-  .then(([prompts, categories]) => store.setState({ prompts, categories, selectedPromptId: prompts[0]?.id || null }))
+  .then(async ([prompts, categories]) => store.setState({ prompts, categories, workflows: await getWorkflows(), selectedPromptId: prompts[0]?.id || null }))
   .catch((error) => showToast(error.message, 'error'));
