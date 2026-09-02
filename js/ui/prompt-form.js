@@ -3,7 +3,7 @@ import { createIcon } from './icons.js';
 import { openModal } from './modal.js';
 import { showToast } from './toast.js';
 
-function createField({ label, name, value = '', type = 'input', required = false, maxLength = null, hint = '' }) {
+function createField({ label, name, value = '', type = 'input', required = false, maxLength = null, hint = '', placeholder = '' }) {
   const wrapper = document.createElement('div');
   wrapper.className = 'form-field';
   const labelElement = document.createElement('label');
@@ -19,6 +19,7 @@ function createField({ label, name, value = '', type = 'input', required = false
   input.id = `prompt-${name}`;
   input.name = name;
   input.value = value;
+  input.placeholder = placeholder;
   input.required = required;
   if (maxLength) input.maxLength = maxLength;
   if (name === 'content') input.className = 'prompt-input';
@@ -95,11 +96,21 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
     label: 'Summary', name: 'summary', value: prompt?.summary || '', type: 'textarea', required: true,
     maxLength: 240, hint: 'Explain when this prompt is useful.'
   });
+  const inputField = createField({
+    label: 'Input', name: 'input', value: prompt?.input || '', type: 'textarea', required: true,
+    maxLength: 2000, hint: 'Describe the information, document or variables this prompt requires.',
+    placeholder: 'Example: API requirements, OpenAPI specification and business rules.'
+  });
+  const outputField = createField({
+    label: 'Output', name: 'output', value: prompt?.output || '', type: 'textarea', required: true,
+    maxLength: 2000, hint: 'Describe the expected result, structure or format produced by this prompt.',
+    placeholder: 'Example: A structured list of test cases with steps and expected results.'
+  });
   const contentField = createField({
     label: 'Prompt content', name: 'content', value: prompt?.content || '', type: 'textarea', required: true,
     hint: 'Use {{variable}} placeholders where needed.'
   });
-  form.append(nameField.wrapper, categoryField, summaryField.wrapper, contentField.wrapper);
+  form.append(nameField.wrapper, categoryField, summaryField.wrapper, inputField.wrapper, outputField.wrapper, contentField.wrapper);
 
   const cancelButton = document.createElement('button');
   cancelButton.className = 'button button--secondary';
@@ -133,6 +144,8 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
           name: nameField.input.value,
           categoryIds: selectedIds,
           summary: summaryField.input.value,
+          input: inputField.input.value,
+          output: outputField.input.value,
           content: contentField.input.value
         },
         categories: workingCategories

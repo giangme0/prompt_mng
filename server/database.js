@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { seedCategories, seedPrompts } from '../js/data/seed.js';
 
 const GREEN_THEME_MIGRATION = { id: 'green-theme-001', version: 1 };
+const PROMPT_INPUT_OUTPUT_MIGRATION = { id: 'prompt-input-output-001' };
 const SAMPLE_CATEGORY_COLORS = {
   'cat-coding': '#15803d',
   'cat-testing': '#059669',
@@ -22,6 +23,8 @@ export function initializeDatabase(filename) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       summary TEXT NOT NULL,
+      input_description TEXT NOT NULL DEFAULT '',
+      output_description TEXT NOT NULL DEFAULT '',
       content TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -41,6 +44,7 @@ export function initializeDatabase(filename) {
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
     );
   `);
+  runPromptInputOutputMigration(db);
   const categoryColumns = db.prepare('PRAGMA table_info(categories)').all();
   if (!categoryColumns.some((column) => column.name === 'updated_at')) {
     db.exec('ALTER TABLE categories ADD COLUMN updated_at TEXT');
@@ -49,6 +53,17 @@ export function initializeDatabase(filename) {
   seedIfEmpty(db);
   runGreenThemeMigration(db);
   return db;
+}
+
+function runPromptInputOutputMigration(db) {
+  const columns = db.prepare('PRAGMA table_info(prompts)').all();
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has('input_description')) {
+    db.exec("ALTER TABLE prompts ADD COLUMN input_description TEXT NOT NULL DEFAULT ''");
+  }
+  if (!names.has('output_description')) {
+    db.exec("ALTER TABLE prompts ADD COLUMN output_description TEXT NOT NULL DEFAULT ''");
+  }
 }
 
 function seedIfEmpty(db) {
@@ -60,7 +75,7 @@ function seedIfEmpty(db) {
     'INSERT INTO categories (id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
   );
   const insertPrompt = db.prepare(
-    'INSERT INTO prompts (id, name, summary, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO prompts (id, name, summary, input_description, output_description, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const insertRelation = db.prepare(
     'INSERT INTO prompt_categories (prompt_id, category_id) VALUES (?, ?)'
@@ -71,7 +86,7 @@ function seedIfEmpty(db) {
       insertCategory.run(category.id, category.name, category.color, createdAt, createdAt);
     }
     for (const prompt of seedPrompts) {
-      insertPrompt.run(prompt.id, prompt.name, prompt.summary, prompt.content, prompt.createdAt, prompt.updatedAt);
+      insertPrompt.run(prompt.id, prompt.name, prompt.summary, prompt.input, prompt.output, prompt.content, prompt.createdAt, prompt.updatedAt);
       for (const categoryId of prompt.categoryIds) insertRelation.run(prompt.id, categoryId);
     }
   })();

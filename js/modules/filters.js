@@ -11,8 +11,8 @@ export function matchesSearch(prompt, categories, rawQuery) {
     .map((id) => categories.find((category) => category.id === id)?.name || '')
     .join(' ');
 
-  return [prompt.name, prompt.summary, prompt.content, categoryNames]
-    .some((value) => value.toLocaleLowerCase().includes(query));
+  return [prompt.name, prompt.summary, prompt.input || '', prompt.output || '', prompt.content, categoryNames]
+    .some((value) => String(value || '').toLocaleLowerCase().includes(query));
 }
 
 export function sortPrompts(prompts, sortBy) {

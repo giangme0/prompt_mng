@@ -84,6 +84,19 @@ export function renderPromptDetail({ prompt, categories, onCopy, onEdit, onDelet
   summary.textContent = prompt.summary;
   summarySection.append(summaryHeading, summary);
 
+  const io = document.createElement('div');
+  io.className = 'detail-io';
+  for (const [label, value] of [['Input', prompt.input || ''], ['Output', prompt.output || '']]) {
+    const card = document.createElement('section');
+    card.className = `prompt-io-card${value ? '' : ' prompt-io-card--empty'}`;
+    const cardTitle = document.createElement('h3');
+    cardTitle.textContent = label;
+    const cardText = document.createElement('p');
+    cardText.textContent = value || 'Not specified';
+    card.append(cardTitle, cardText);
+    io.append(card);
+  }
+
   const promptSection = document.createElement('section');
   promptSection.className = 'detail-section';
   const promptTitle = document.createElement('h3');
@@ -109,6 +122,6 @@ export function renderPromptDetail({ prompt, categories, onCopy, onEdit, onDelet
   copyButton.append(createIcon('copy'), document.createTextNode('Copy prompt'));
   copyButton.addEventListener('click', () => onCopy(prompt, copyButton));
   footer.append(meta, copyButton);
-  detail.append(mobileBar, topbar, title, tags, summarySection, promptSection, footer);
+  detail.append(mobileBar, topbar, title, tags, summarySection, io, promptSection, footer);
   container.append(detail);
 }

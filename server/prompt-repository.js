@@ -3,6 +3,8 @@ function toPrompt(row) {
     id: row.id,
     name: row.name,
     summary: row.summary,
+    input: row.input_description || '',
+    output: row.output_description || '',
     content: row.content,
     categoryIds: row.category_ids ? row.category_ids.split(',') : [],
     createdAt: row.created_at,
@@ -12,7 +14,7 @@ function toPrompt(row) {
 
 export function createPromptRepository(db) {
   const select = db.prepare(`
-    SELECT p.id, p.name, p.summary, p.content, p.created_at, p.updated_at,
+    SELECT p.id, p.name, p.summary, p.input_description, p.output_description, p.content, p.created_at, p.updated_at,
            GROUP_CONCAT(pc.category_id) AS category_ids
     FROM prompts p
     LEFT JOIN prompt_categories pc ON pc.prompt_id = p.id
@@ -20,17 +22,17 @@ export function createPromptRepository(db) {
     ORDER BY p.updated_at DESC
   `);
   const find = db.prepare(`
-    SELECT p.id, p.name, p.summary, p.content, p.created_at, p.updated_at,
+    SELECT p.id, p.name, p.summary, p.input_description, p.output_description, p.content, p.created_at, p.updated_at,
            GROUP_CONCAT(pc.category_id) AS category_ids
     FROM prompts p
     LEFT JOIN prompt_categories pc ON pc.prompt_id = p.id
     WHERE p.id = ? GROUP BY p.id
   `);
   const insert = db.prepare(
-    'INSERT INTO prompts (id, name, summary, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO prompts (id, name, summary, input_description, output_description, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const update = db.prepare(
-    'UPDATE prompts SET name = ?, summary = ?, content = ?, updated_at = ? WHERE id = ?'
+    'UPDATE prompts SET name = ?, summary = ?, input_description = ?, output_description = ?, content = ?, updated_at = ? WHERE id = ?'
   );
   const deletePrompt = db.prepare('DELETE FROM prompts WHERE id = ?');
   const deleteRelations = db.prepare('DELETE FROM prompt_categories WHERE prompt_id = ?');
@@ -60,12 +62,14 @@ export function createPromptRepository(db) {
     },
     create: (data) => {
       const categoryIds = validateCategories(data.categoryIds);
+      const input = typeof data.input === 'string' ? data.input.trim() : '';
+      const output = typeof data.output === 'string' ? data.output.trim() : '';
       const now = new Date().toISOString();
       db.transaction(() => {
-        insert.run(data.id, data.name, data.summary, data.content, now, now);
+        insert.run(data.id, data.name, data.summary, input, output, data.content, now, now);
         saveRelations(data.id, categoryIds);
       })();
-      return { ...data, categoryIds, createdAt: now, updatedAt: now };
+      return { ...data, input, output, categoryIds, createdAt: now, updatedAt: now };
     },
     update: (id, data) => {
       const categoryIds = validateCategories(data.categoryIds);
@@ -73,10 +77,10 @@ export function createPromptRepository(db) {
       if (!existing) return null;
       const updatedAt = new Date().toISOString();
       db.transaction(() => {
-        update.run(data.name, data.summary, data.content, updatedAt, id);
+        update.run(data.name, data.summary, (data.input || '').trim(), (data.output || '').trim(), data.content, updatedAt, id);
         saveRelations(id, categoryIds);
       })();
-      return { ...data, id, categoryIds, createdAt: existing.created_at, updatedAt };
+      return { ...data, input: (data.input || '').trim(), output: (data.output || '').trim(), id, categoryIds, createdAt: existing.createdAt, updatedAt };
     },
     delete: (id) => deletePrompt.run(id).changes > 0
   };

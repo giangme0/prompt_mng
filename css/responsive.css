@@ -152,6 +152,10 @@
     font-size: 1.75rem;
   }
 
+  .detail-io {
+    grid-template-columns: 1fr;
+  }
+
   .detail-footer {
     align-items: flex-start;
     flex-direction: column;

@@ -612,6 +612,43 @@
   line-height: 1.75;
 }
 
+.detail-io {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.prompt-io-card {
+  min-width: 0;
+  padding: 17px 18px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.prompt-io-card h3 {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 780;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.prompt-io-card p {
+  margin-top: 12px;
+  color: var(--color-text-soft);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prompt-io-card--empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .prompt-code {
   position: relative;
   max-height: 430px;

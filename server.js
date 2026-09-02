@@ -50,6 +50,17 @@ function validateText(value, field) {
   return text;
 }
 
+function validatePromptText(value, field) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw Object.assign(new Error(`Prompt ${field} is required`), { status: 400 });
+  }
+  const text = value.trim();
+  if (text.length > 2000) {
+    throw Object.assign(new Error(`Prompt ${field} must be 2,000 characters or fewer`), { status: 400 });
+  }
+  return text;
+}
+
 function validateCategoryBody(body) {
   if (typeof body.name !== 'string' || !body.name.trim()) throw Object.assign(new Error('name is required'), { status: 400 });
   const name = body.name.trim();
@@ -94,6 +105,8 @@ async function handleApi(request, response, url) {
     const data = {
       name: validateText(body.name, 'name'),
       summary: validateText(body.summary, 'summary'),
+      input: validatePromptText(body.input, 'input'),
+      output: validatePromptText(body.output, 'output'),
       content: validateText(body.content, 'content'),
       categoryIds: Array.isArray(body.categoryIds) ? body.categoryIds : []
     };

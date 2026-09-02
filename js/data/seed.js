@@ -13,6 +13,8 @@ export const seedPrompts = [
     name: 'API Test Case Generator',
     categoryIds: ['cat-testing', 'cat-api'],
     summary: 'Creates positive, negative, boundary and security-focused test scenarios from API requirements.',
+    input: 'API requirements, OpenAPI specification and relevant business rules.',
+    output: 'A structured list of positive, negative, boundary and security test cases with expected results.',
     content: `You are a senior API testing specialist.
 
 Analyze the following API requirements:
@@ -35,6 +37,8 @@ For each test case, return: ID, objective, preconditions, input, steps and expec
     name: 'Requirement Quality Analyzer',
     categoryIds: ['cat-analysis', 'cat-documentation'],
     summary: 'Reviews software requirements for ambiguity, missing rules, contradictions and testability gaps.',
+    input: 'Software requirement specifications, business rules and acceptance criteria.',
+    output: 'An issue report identifying ambiguity, contradictions, missing rules and concrete corrections.',
     content: `Act as a senior business analyst and requirement reviewer.
 
 Review the following requirement specification:
@@ -57,6 +61,8 @@ For every issue, cite the exact requirement and propose a concrete correction.`,
     name: 'Production Code Review',
     categoryIds: ['cat-coding', 'cat-testing'],
     summary: 'Performs an evidence-based code review focused on correctness, security and maintainability.',
+    input: 'Production code and the relevant technical context or requirements.',
+    output: 'Prioritized actionable findings with severity, evidence, impact and minimal fixes.',
     content: `You are reviewing production code.
 
 Code:
@@ -74,6 +80,8 @@ Report only actionable findings. Prioritize correctness, security, data loss, ra
     name: 'Mermaid Sequence Diagram',
     categoryIds: ['cat-design', 'cat-documentation'],
     summary: 'Transforms a system interaction description into a readable Mermaid sequence diagram.',
+    input: 'A description of system interactions, participants, messages and error branches.',
+    output: 'Valid Mermaid sequence diagram syntax followed by a concise explanation.',
     content: `Convert the interaction below into a Mermaid sequence diagram.
 
 {{interaction}}
@@ -92,6 +100,8 @@ Rules:
     name: 'Safe SQL Query Builder',
     categoryIds: ['cat-coding', 'cat-analysis'],
     summary: 'Builds a parameterized SQL query and explains assumptions, indexes and edge cases.',
+    input: 'Database schema, query request and target SQL dialect.',
+    output: 'A safe parameterized SQL query with assumptions, explanation and relevant index suggestions.',
     content: `You are a database engineer.
 
 Schema:
@@ -109,6 +119,8 @@ Write a parameterized SQL query for the requested database dialect. Do not conca
     name: 'Release Notes Writer',
     categoryIds: ['cat-documentation'],
     summary: 'Turns technical changes into concise release notes organized around user-visible impact.',
+    input: 'Technical changes, fixes, improvements and target audience information.',
+    output: 'Clear user-focused release notes grouped into Added, Improved and Fixed sections.',
     content: `Write clear release notes from the changes below:
 
 {{changes}}
