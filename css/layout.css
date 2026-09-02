@@ -4,7 +4,7 @@ body::before {
   inset: 0 0 auto;
   z-index: 5;
   height: 3px;
-  background: linear-gradient(90deg, #16a34a, #10b981 50%, #14b8a6);
+  background: var(--neutral-border-strong);
 }
 
 .ambient {
@@ -21,21 +21,21 @@ body::before {
 .ambient--one {
   top: -180px;
   left: -110px;
-  background: radial-gradient(circle, #bbf7d0, transparent 68%);
+  background: radial-gradient(circle, var(--neutral-border-strong), transparent 68%);
 }
 
 .ambient--two {
   right: -160px;
   bottom: -190px;
-  background: radial-gradient(circle, #99f6e4, transparent 68%);
+  background: radial-gradient(circle, var(--neutral-border), transparent 68%);
 }
 
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   width: calc(100vw - 32px);
-  height: calc(100vh - 32px);
-  margin: 16px;
+  height: calc(100vh - 40px);
+  margin: 24px 16px 16px;
   overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -69,9 +69,9 @@ body::before {
   height: 39px;
   place-items: center;
   color: white;
-  background: linear-gradient(145deg, #22c55e, #15803d);
+  background: linear-gradient(145deg, #52525b, #27272a);
   border-radius: 12px;
-  box-shadow: 0 7px 16px rgba(22, 163, 74, 0.25);
+  box-shadow: 0 7px 16px rgba(24, 24, 27, 0.2);
 }
 
 .brand__mark img {
@@ -175,9 +175,7 @@ body::before {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  background:
-    radial-gradient(circle at top right, rgba(22, 163, 74, 0.07), transparent 30%),
-    var(--color-surface-soft);
+  background: var(--color-surface-soft);
 }
 
 .sidebar-scrim {

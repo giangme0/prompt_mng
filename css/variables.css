@@ -1,15 +1,22 @@
 :root {
   color-scheme: light;
 
-  --color-bg: #f3f8f5;
-  --color-surface: #ffffff;
-  --color-surface-soft: #f7faf8;
-  --color-surface-hover: #eef7f1;
-  --color-border: #dfe9e3;
-  --color-border-strong: #cadacf;
-  --color-text: #17211b;
-  --color-text-soft: #56635b;
-  --color-text-muted: #87948c;
+  /* Neutral theme */
+  --neutral-bg: #f5f5f5;
+  --neutral-surface: #ffffff;
+  --neutral-surface-subtle: #fafafa;
+  --neutral-surface-hover: #f4f4f5;
+  --neutral-surface-selected: #e4e4e7;
+  --neutral-border: #e4e4e7;
+  --neutral-border-strong: #d4d4d8;
+  --neutral-text-primary: #18181b;
+  --neutral-text-secondary: #52525b;
+  --neutral-text-muted: #71717a;
+  --neutral-text-disabled: #a1a1aa;
+  --neutral-icon: #71717a;
+  --neutral-focus-ring: #a1a1aa;
+
+  /* Existing action and category colors — intentionally unchanged. */
   --color-primary: #16a34a;
   --color-primary-hover: #15803d;
   --color-primary-soft: #ecfdf3;
@@ -17,6 +24,16 @@
   --color-danger-soft: #fff0f1;
   --color-success: #059669;
   --color-success-soft: #ecfdf5;
+
+  --color-bg: var(--neutral-bg);
+  --color-surface: var(--neutral-surface);
+  --color-surface-soft: var(--neutral-surface-subtle);
+  --color-surface-hover: var(--neutral-surface-hover);
+  --color-border: var(--neutral-border);
+  --color-border-strong: var(--neutral-border-strong);
+  --color-text: var(--neutral-text-primary);
+  --color-text-soft: var(--neutral-text-secondary);
+  --color-text-muted: var(--neutral-text-muted);
 
   --shadow-shell: 0 24px 70px rgba(36, 42, 67, 0.12);
   --shadow-modal: 0 28px 80px rgba(21, 26, 44, 0.24);

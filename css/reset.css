@@ -44,12 +44,12 @@ body {
 }
 
 ::selection {
-  background: #bbf7d0;
-  color: #14532d;
+  background: var(--neutral-surface-selected);
+  color: var(--neutral-text-primary);
 }
 
 :focus-visible {
-  outline: 3px solid rgba(22, 163, 74, 0.25);
+  outline: 3px solid color-mix(in srgb, var(--neutral-focus-ring) 35%, transparent);
   outline-offset: 2px;
 }
 
