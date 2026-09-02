@@ -1,6 +1,6 @@
 import { getVisiblePrompts } from './modules/filters.js';
 import { createPrompt, updatePrompt } from './modules/prompts.js';
-import { loadData, saveCategories, savePrompts, saveSettings } from './services/storage.js';
+import { createCategory, createPrompt as apiCreatePrompt, deletePrompt, getCategories, getPrompts, updatePrompt as apiUpdatePrompt } from './services/api.js';
 import { createStore } from './state/store.js';
 import { createId } from './utils/id.js';
 import { hydrateIcons, createIcon } from './ui/icons.js';
@@ -11,15 +11,14 @@ import { renderPromptList } from './ui/prompt-list.js';
 import { renderActiveFilters, renderSidebar } from './ui/sidebar.js';
 import { showToast } from './ui/toast.js';
 
-const data = loadData();
 const store = createStore({
-  prompts: data.prompts,
-  categories: data.categories,
-  selectedPromptId: data.prompts[0]?.id || null,
+  prompts: [],
+  categories: [],
+  selectedPromptId: null,
   filters: {
     categoryIds: [],
     search: '',
-    sortBy: data.settings.sortBy || 'updated-desc'
+    sortBy: 'updated-desc'
   }
 });
 
@@ -69,6 +68,13 @@ function selectPrompt(promptId) {
   }
 }
 
+async function createCategoryForStore(name) {
+  const colors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#ea580c', '#db2777', '#4f46e5'];
+  const category = await createCategory({ name, color: colors[store.getState().categories.length % colors.length] });
+  store.setState({ categories: [...store.getState().categories, category] });
+  return category;
+}
+
 async function copyPrompt(prompt, button) {
   try {
     if (navigator.clipboard?.writeText) {
@@ -100,13 +106,13 @@ function openCreatePrompt() {
   const state = store.getState();
   openPromptForm({
     categories: state.categories,
-    onSave: ({ data: promptData, categories }) => {
+    onCreateCategory: createCategoryForStore,
+    onSave: async ({ data: promptData }) => {
       const prompt = createPrompt(promptData, createId('prm'));
-      const prompts = [prompt, ...store.getState().prompts];
-      const categoriesSaved = saveCategories(categories);
-      const promptsSaved = savePrompts(prompts);
-      store.setState({ prompts, categories, selectedPromptId: prompt.id });
-      showToast(categoriesSaved && promptsSaved ? 'Prompt created' : 'Prompt created, but local saving failed', categoriesSaved && promptsSaved ? 'success' : 'error');
+      const saved = await apiCreatePrompt(prompt);
+      store.setState({ prompts: [saved, ...store.getState().prompts], selectedPromptId: saved.id });
+      showToast('Prompt created');
+      return true;
     }
   });
 }
@@ -115,12 +121,12 @@ function openEditPrompt(prompt) {
   openPromptForm({
     prompt,
     categories: store.getState().categories,
-    onSave: ({ data: promptData, categories }) => {
-      const prompts = store.getState().prompts.map((item) => item.id === prompt.id ? updatePrompt(item, promptData) : item);
-      const categoriesSaved = saveCategories(categories);
-      const promptsSaved = savePrompts(prompts);
-      store.setState({ prompts, categories, selectedPromptId: prompt.id });
-      showToast(categoriesSaved && promptsSaved ? 'Changes saved' : 'Changes applied, but local saving failed', categoriesSaved && promptsSaved ? 'success' : 'error');
+    onCreateCategory: createCategoryForStore,
+    onSave: async ({ data: promptData }) => {
+      const saved = await apiUpdatePrompt(prompt.id, promptData);
+      store.setState({ prompts: store.getState().prompts.map((item) => item.id === prompt.id ? saved : item), selectedPromptId: prompt.id });
+      showToast('Changes saved');
+      return true;
     }
   });
 }
@@ -128,15 +134,14 @@ function openEditPrompt(prompt) {
 function requestDeletePrompt(prompt) {
   openConfirmation({
     promptName: prompt.name,
-    onConfirm: () => {
+    onConfirm: async () => {
       const state = store.getState();
+      await deletePrompt(prompt.id);
       const prompts = state.prompts.filter((item) => item.id !== prompt.id);
-      const nextState = { ...state, prompts };
-      const selectedPromptId = selectBestVisible(nextState, null);
-      const saved = savePrompts(prompts);
+      const selectedPromptId = selectBestVisible({ ...state, prompts }, null);
       store.setState({ prompts, selectedPromptId });
       document.body.classList.remove('detail-open');
-      showToast(saved ? 'Prompt deleted' : 'Prompt deleted, but local saving failed', saved ? 'success' : 'error');
+      showToast('Prompt deleted');
     }
   });
 }
@@ -183,7 +188,6 @@ clearFiltersButton.addEventListener('click', clearCategoryFilters);
 searchInput.addEventListener('input', () => updateFilters({ search: searchInput.value }));
 sortSelect.addEventListener('change', () => {
   updateFilters({ sortBy: sortSelect.value });
-  saveSettings({ sortBy: sortSelect.value });
 });
 
 document.addEventListener('keydown', (event) => {
@@ -201,3 +205,7 @@ window.addEventListener('resize', () => {
 
 store.subscribe(render);
 render(store.getState());
+
+Promise.all([getPrompts(), getCategories()])
+  .then(([prompts, categories]) => store.setState({ prompts, categories, selectedPromptId: prompts[0]?.id || null }))
+  .catch((error) => showToast(error.message, 'error'));

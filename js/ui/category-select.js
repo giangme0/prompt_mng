@@ -91,10 +91,10 @@ export function createCategorySelect({ categories, getSelectedIds, onChange, onC
     }
   }
 
-  function createFromInput() {
+  async function createFromInput() {
     const name = input.value.trim();
     if (!name) return;
-    onCreate(name);
+    await onCreate(name);
     input.value = '';
     render();
     input.focus();

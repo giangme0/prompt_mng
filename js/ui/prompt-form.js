@@ -1,8 +1,7 @@
-import { createCategory } from '../modules/categories.js';
-import { createId } from '../utils/id.js';
 import { createCategorySelect } from './category-select.js';
 import { createIcon } from './icons.js';
 import { openModal } from './modal.js';
+import { showToast } from './toast.js';
 
 function createField({ label, name, value = '', type = 'input', required = false, maxLength = null, hint = '' }) {
   const wrapper = document.createElement('div');
@@ -41,7 +40,7 @@ function createField({ label, name, value = '', type = 'input', required = false
   return { wrapper, input };
 }
 
-export function openPromptForm({ prompt = null, categories, onSave }) {
+export function openPromptForm({ prompt = null, categories, onSave, onCreateCategory }) {
   const isEdit = Boolean(prompt);
   const workingCategories = categories.map((category) => ({ ...category }));
   let selectedIds = [...(prompt?.categoryIds || [])];
@@ -71,12 +70,18 @@ export function openPromptForm({ prompt = null, categories, onSave }) {
       selectedIds = ids;
       categoryError.hidden = selectedIds.length > 0;
     },
-    onCreate: (name) => {
+    onCreate: async (name) => {
       const existing = workingCategories.find((category) => category.name.toLocaleLowerCase() === name.toLocaleLowerCase());
       if (existing) {
         if (!selectedIds.includes(existing.id)) selectedIds = [...selectedIds, existing.id];
       } else {
-        const category = createCategory(name, createId('cat'), workingCategories.length);
+        let category;
+        try {
+          category = await onCreateCategory(name);
+        } catch (error) {
+          showToast(error.message, 'error');
+          return;
+        }
         workingCategories.push(category);
         selectedIds = [...selectedIds, category.id];
       }
@@ -113,7 +118,7 @@ export function openPromptForm({ prompt = null, categories, onSave }) {
     footer: [cancelButton, saveButton]
   });
   cancelButton.addEventListener('click', close);
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!form.reportValidity()) return;
     if (!selectedIds.length) {
@@ -121,15 +126,21 @@ export function openPromptForm({ prompt = null, categories, onSave }) {
       categorySelect.focus();
       return;
     }
-    onSave({
-      data: {
-        name: nameField.input.value,
-        categoryIds: selectedIds,
-        summary: summaryField.input.value,
-        content: contentField.input.value
-      },
-      categories: workingCategories
-    });
-    close();
+    saveButton.disabled = true;
+    try {
+      const saved = await onSave({
+        data: {
+          name: nameField.input.value,
+          categoryIds: selectedIds,
+          summary: summaryField.input.value,
+          content: contentField.input.value
+        },
+        categories: workingCategories
+      });
+      if (saved !== false) close();
+    } catch (error) {
+      showToast(error.message, 'error');
+      saveButton.disabled = false;
+    }
   });
 }

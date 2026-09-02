@@ -1,6 +1,6 @@
 # prompt_mng — PromptVault
 
-A polished prompt management workspace built with plain HTML, CSS and Vanilla JavaScript. No framework, build step or third-party package is required.
+A polished prompt management workspace built with plain HTML, CSS and Vanilla JavaScript, with a Node.js REST API backed by SQLite.
 
 ## Features
 
@@ -11,7 +11,7 @@ A polished prompt management workspace built with plain HTML, CSS and Vanilla Ja
 - Assign multiple categories to one prompt
 - Create a category directly inside the prompt form
 - Copy prompt content to the clipboard
-- Persist data in browser `localStorage`
+- Persist prompts and categories in SQLite
 - Responsive desktop, tablet and mobile layouts
 
 ## Run
@@ -24,7 +24,7 @@ npm start
 
 Then open <http://localhost:4173>.
 
-No `npm install` is needed because the project has no dependencies.
+Run `npm install` once to install `better-sqlite3`. The database is created automatically at `data/prompt_mng.sqlite` when the server starts.
 
 ## Test
 
@@ -34,10 +34,4 @@ npm test
 
 ## Data and reset
 
-The application stores data under these browser keys:
-
-- `promptvault.prompts`
-- `promptvault.categories`
-- `promptvault.settings`
-
-To restore the sample data, clear this site's local storage in browser developer tools and reload the page.
+The application stores data in `data/prompt_mng.sqlite`. Sample data is inserted only when the database is empty. To reset the sample data, stop the server, delete the database file, and start the server again.
