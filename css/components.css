@@ -121,7 +121,9 @@
   animation: ai-spin 0.8s linear infinite;
 }
 
-.form-field textarea.is-loading {
+.form-field input.is-loading,
+.form-field textarea.is-loading,
+.category-select.is-loading .category-select__control {
   background: linear-gradient(90deg, var(--color-surface-soft) 25%, #f1f5f2 50%, var(--color-surface-soft) 75%);
   background-size: 200% 100%;
   animation: ai-skeleton 1.2s ease-in-out infinite;

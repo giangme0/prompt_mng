@@ -109,7 +109,7 @@ export function openAnalysisConfirmation({ onConfirm }) {
   const heading = document.createElement('h3');
   heading.textContent = 'Analyze again?';
   const description = document.createElement('p');
-  description.textContent = 'This will replace the current Summary, Input and Output.';
+  description.textContent = 'This will replace Prompt name, Categories, Summary, Input and Output. Prompt content will not be changed.';
   content.append(heading, description);
   const cancel = document.createElement('button');
   cancel.className = 'button button--secondary'; cancel.type = 'button'; cancel.textContent = 'Cancel';

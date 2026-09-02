@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { initializeDatabase } from './server/database.js';
 import { createCategoryRepository } from './server/category-repository.js';
 import { createPromptRepository } from './server/prompt-repository.js';
-import { analyzePrompt } from './server/services/llm-service.js';
+import { analyzePrompt, mapSuggestedCategories } from './server/services/llm-service.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 dotenv.config({ path: join(ROOT, '.env') });
@@ -77,8 +77,10 @@ async function handleApi(request, response, url) {
   const path = url.pathname;
   if (request.method === 'POST' && path === '/api/llm/analyze-prompt') {
     const body = await readJson(request);
-    const result = await analyzePrompt(body?.content);
-    return sendJson(response, 200, result);
+    const availableCategories = categories.list();
+    const analysis = await analyzePrompt(body?.content, availableCategories);
+    const matchedCategories = mapSuggestedCategories(analysis.categories, availableCategories);
+    return sendJson(response, 200, { promptName: analysis.promptName, ...matchedCategories, summary: analysis.summary, input: analysis.input, output: analysis.output });
   }
   if (request.method === 'GET' && path === '/api/categories') return sendJson(response, 200, categories.list());
   if (request.method === 'GET' && path === '/api/prompts') return sendJson(response, 200, prompts.list());

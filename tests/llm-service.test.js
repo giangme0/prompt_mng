@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzePrompt } from '../server/services/llm-service.js';
+import { analyzePrompt, mapSuggestedCategories } from '../server/services/llm-service.js';
 
 const originalEnv = { ...process.env };
 const originalFetch = globalThis.fetch;
@@ -48,9 +48,29 @@ test('rejects malformed provider output and returns normalized valid output', as
     const request = JSON.parse(options.body);
     assert.equal(request.messages.length, 2);
     assert.equal(request.messages[1].content, content);
-    return { ok: true, json: async () => ({ choices: [{ message: { content: '```json\n{"summary":" Generates API tests. ","input":" Requirements. ","output":" Structured test cases. "}\n```' } }] }) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: '```json\n{"promptName":" API Test Generator ","categories":["Testing"],"summary":" Generates API tests. ","input":" Requirements. ","output":" Structured test cases. "}\n```' } }] }) };
   };
   const result = await analyzePrompt(content);
-  assert.deepEqual(result, { summary: 'Generates API tests.', input: 'Requirements.', output: 'Structured test cases.' });
+  assert.deepEqual(result, { promptName: 'API Test Generator', categories: ['Testing'], summary: 'Generates API tests.', input: 'Requirements.', output: 'Structured test cases.' });
   assert.equal(JSON.stringify(result).includes('secret-test-key'), false);
+});
+
+test('maps category names case-insensitively, removes invalid duplicates, and limits to three', () => {
+  const available = [
+    { id: 'cat-testing', name: 'Testing', color: '#7c3aed' },
+    { id: 'cat-api', name: 'API', color: '#0891b2' },
+    { id: 'cat-coding', name: 'Coding', color: '#16a34a' },
+    { id: 'cat-docs', name: 'Documentation', color: '#ea580c' }
+  ];
+  assert.deepEqual(mapSuggestedCategories(['testing', 'API', 'missing', 'TESTING', 'Coding', 'Documentation'], available), {
+    categoryIds: ['cat-testing', 'cat-api', 'cat-coding'],
+    categories: [available[0], available[1], available[2]]
+  });
+  assert.deepEqual(mapSuggestedCategories([], available), { categoryIds: [], categories: [] });
+});
+
+test('rejects an invalid prompt name', async () => {
+  configure();
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ promptName: 'x'.repeat(81), categories: [], summary: 'Summary', input: 'Input', output: 'Output' }) } }] }) });
+  await assert.rejects(() => analyzePrompt(content), { status: 422 });
 });

@@ -46,7 +46,7 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
   const isEdit = Boolean(prompt);
   const workingCategories = categories.map((category) => ({ ...category }));
   let selectedIds = [...(prompt?.categoryIds || [])];
-  const aiFieldState = { summaryDirty: false, inputDirty: false, outputDirty: false };
+  const aiFieldState = { promptNameDirty: false, categoriesDirty: false, summaryDirty: false, inputDirty: false, outputDirty: false };
   let analysisTimer = null;
   let analysisController = null;
   let currentAnalysisRequestId = 0;
@@ -74,12 +74,14 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
     getSelectedIds: () => selectedIds,
     onChange: (ids) => {
       selectedIds = ids;
+      aiFieldState.categoriesDirty = true;
       categoryError.hidden = selectedIds.length > 0;
     },
     onCreate: async (name) => {
       const existing = workingCategories.find((category) => category.name.toLocaleLowerCase() === name.toLocaleLowerCase());
       if (existing) {
         if (!selectedIds.includes(existing.id)) selectedIds = [...selectedIds, existing.id];
+        aiFieldState.categoriesDirty = true;
       } else {
         let category;
         try {
@@ -90,6 +92,7 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
         }
         workingCategories.push(category);
         selectedIds = [...selectedIds, category.id];
+        aiFieldState.categoriesDirty = true;
       }
       categoryError.hidden = true;
       categorySelect.refresh();
@@ -139,6 +142,7 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
   fields.forEach(({ input }, index) => input.addEventListener('input', () => {
     aiFieldState[['summaryDirty', 'inputDirty', 'outputDirty'][index]] = true;
   }));
+  nameField.input.addEventListener('input', () => { aiFieldState.promptNameDirty = true; });
 
   function setLoading(loading) {
     analyzeButton.disabled = loading;
@@ -147,9 +151,15 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
       analysisStatus.hidden = false;
       analysisStatus.replaceChildren();
       const spinner = document.createElement('span'); spinner.className = 'spinner'; spinner.setAttribute('aria-hidden', 'true');
-      analysisStatus.append(spinner, document.createTextNode('Analyzing prompt...'));
-      fields.forEach(({ input }) => input.classList.toggle('is-loading', true));
-    } else fields.forEach(({ input }) => input.classList.toggle('is-loading', false));
+      analysisStatus.append(spinner, document.createTextNode('Analyzing prompt and suggesting categories...'));
+      analyzeButton.replaceChildren(createIcon('sparkle'), document.createTextNode('Analyzing...'));
+      [nameField, ...fields].forEach(({ input }) => input.classList.toggle('is-loading', true));
+      categorySelect.element.classList.add('is-loading');
+    } else {
+      analyzeButton.replaceChildren(createIcon('sparkle'), document.createTextNode(isEdit ? 'Re-analyze with AI' : 'Analyze with AI'));
+      [nameField, ...fields].forEach(({ input }) => input.classList.toggle('is-loading', false));
+      categorySelect.element.classList.remove('is-loading');
+    }
   }
 
   async function runAnalysis({ force = false, confirmed = false } = {}) {
@@ -174,15 +184,23 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
     try {
       const result = await analyzePrompt(content, { signal: analysisController.signal });
       if (requestId !== currentAnalysisRequestId || content !== contentField.input.value.trim()) return;
+      if (!aiFieldState.promptNameDirty) nameField.input.value = result.promptName;
+      if (!aiFieldState.categoriesDirty) {
+        const validIds = new Set(workingCategories.map((category) => category.id));
+        selectedIds = (result.categoryIds || []).filter((id) => validIds.has(id));
+        categoryError.hidden = selectedIds.length > 0;
+        categorySelect.refresh();
+      }
       if (!aiFieldState.summaryDirty) summaryField.input.value = result.summary;
       if (!aiFieldState.inputDirty) inputField.input.value = result.input;
       if (!aiFieldState.outputDirty) outputField.input.value = result.output;
       analysisStatus.hidden = false;
-      analysisStatus.replaceChildren(document.createTextNode('✓ Analysis complete — you can edit the generated fields.'));
+      analysisStatus.replaceChildren(document.createTextNode('✓ Prompt details generated — review and edit before saving.'));
       window.setTimeout(() => { if (analysisStatus.isConnected) analysisStatus.hidden = true; }, 2000);
     } catch (error) {
       if (error.name !== 'AbortError' && requestId === currentAnalysisRequestId) {
-        analysisStatus.hidden = true;
+        analysisStatus.hidden = false;
+        analysisStatus.replaceChildren(document.createTextNode('Could not generate prompt details. You can retry or enter them manually.'));
         showToast(error.message.includes('not configured') ? 'AI analysis is not configured. Enter the details manually.' : 'Could not analyze this prompt. You can retry or enter the details manually.', 'error');
       }
     } finally {
