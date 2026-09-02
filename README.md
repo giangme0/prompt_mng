@@ -1,4 +1,4 @@
-# prompt_mng — PromptVault
+# prompt_mng — PromptStack
 
 A polished prompt management workspace built with plain HTML, CSS and Vanilla JavaScript, with a Node.js REST API backed by SQLite.
 
