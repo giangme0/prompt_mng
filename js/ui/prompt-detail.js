@@ -109,6 +109,28 @@ export function renderPromptDetail({ prompt, categories, onCopy, onEdit, onDelet
   code.textContent = prompt.content;
   promptSection.append(promptHeading, code);
 
+  const traceSection = document.createElement('section');
+  traceSection.className = 'detail-section context-trace-detail';
+  const traceHeading = document.createElement('h3'); traceHeading.textContent = 'Context & Privacy Trace';
+  traceSection.append(traceHeading);
+  if (prompt.traceStatus === 'not_analyzed' || !prompt.contextTrace || !Object.keys(prompt.contextTrace).length) {
+    const emptyTrace = document.createElement('p'); emptyTrace.textContent = 'Not analyzed'; traceSection.append(emptyTrace);
+  } else {
+    const cards = document.createElement('div'); cards.className = 'context-trace__cards';
+    for (const type of ['project', 'organization', 'personal']) {
+      const item = prompt.contextTrace[type] || { status: 'not_required', missingItems: [] };
+      const card = document.createElement('article'); card.className = `context-trace__card context-trace__card--${item.status}`;
+      const title = document.createElement('strong'); title.textContent = `${type} context`;
+      const status = document.createElement('span'); status.textContent = item.status.replace('_', ' '); card.append(title, status);
+      (item.missingItems || []).forEach((missing) => { const line = document.createElement('div'); line.textContent = `• ${missing}`; card.append(line); });
+      cards.append(card);
+    }
+    traceSection.append(cards);
+    const warnings = prompt.informationWarnings || prompt.contextTrace.informationWarnings || [];
+    warnings.forEach((warning) => { const banner = document.createElement('p'); banner.className = 'privacy-warning'; banner.textContent = `${warning.label}${warning.evidence ? ` — ${warning.evidence}` : ''}`; traceSection.append(banner); });
+    const analyzedAt = document.createElement('p'); analyzedAt.className = 'detail-meta'; analyzedAt.textContent = `Status: ${prompt.traceStatus}${prompt.traceAnalyzedAt ? ` · ${formatDateTime(prompt.traceAnalyzedAt)}` : ''}`; traceSection.append(analyzedAt);
+  }
+
   const footer = document.createElement('footer');
   footer.className = 'detail-footer';
   const meta = document.createElement('p');
@@ -122,6 +144,6 @@ export function renderPromptDetail({ prompt, categories, onCopy, onEdit, onDelet
   copyButton.append(createIcon('copy'), document.createTextNode('Copy prompt'));
   copyButton.addEventListener('click', () => onCopy(prompt, copyButton));
   footer.append(meta, copyButton);
-  detail.append(mobileBar, topbar, title, tags, summarySection, io, promptSection, footer);
+  detail.append(mobileBar, topbar, title, tags, summarySection, io, promptSection, traceSection, footer);
   container.append(detail);
 }

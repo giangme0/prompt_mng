@@ -5,6 +5,7 @@ import { seedCategories, seedPrompts } from '../js/data/seed.js';
 
 const GREEN_THEME_MIGRATION = { id: 'green-theme-001', version: 1 };
 const PROMPT_INPUT_OUTPUT_MIGRATION = { id: 'prompt-input-output-001' };
+const PROMPT_CONTEXT_TRACE_MIGRATION = { id: 'prompt-context-trace-001' };
 const SAMPLE_CATEGORY_COLORS = {
   'cat-coding': '#15803d',
   'cat-testing': '#059669',
@@ -45,6 +46,7 @@ export function initializeDatabase(filename) {
     );
   `);
   runPromptInputOutputMigration(db);
+  runPromptContextTraceMigration(db);
   const categoryColumns = db.prepare('PRAGMA table_info(categories)').all();
   if (!categoryColumns.some((column) => column.name === 'updated_at')) {
     db.exec('ALTER TABLE categories ADD COLUMN updated_at TEXT');
@@ -53,6 +55,14 @@ export function initializeDatabase(filename) {
   seedIfEmpty(db);
   runGreenThemeMigration(db);
   return db;
+}
+
+function runPromptContextTraceMigration(db) {
+  const columns = new Set(db.prepare('PRAGMA table_info(prompts)').all().map((column) => column.name));
+  if (!columns.has('context_trace_json')) db.exec("ALTER TABLE prompts ADD COLUMN context_trace_json TEXT NOT NULL DEFAULT '{}'");
+  if (!columns.has('trace_status')) db.exec("ALTER TABLE prompts ADD COLUMN trace_status TEXT NOT NULL DEFAULT 'not_analyzed'");
+  if (!columns.has('trace_analyzed_at')) db.exec('ALTER TABLE prompts ADD COLUMN trace_analyzed_at TEXT');
+  if (!columns.has('trace_content_hash')) db.exec('ALTER TABLE prompts ADD COLUMN trace_content_hash TEXT');
 }
 
 function runPromptInputOutputMigration(db) {

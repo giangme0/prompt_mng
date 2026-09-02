@@ -112,6 +112,16 @@
   font-weight: 650;
 }
 
+.context-trace { margin-top: 12px; padding: 14px; background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: 12px; }
+.context-trace h3 { margin: 0 0 10px; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; }
+.context-trace__cards { display: grid; gap: 8px; }
+.context-trace__card { display: grid; gap: 3px; padding: 10px 12px; border-left: 3px solid #cbd5e1; background: white; border-radius: 8px; font-size: .78rem; }
+.context-trace__card strong { text-transform: uppercase; font-size: .7rem; letter-spacing: .05em; }
+.context-trace__card span { color: var(--color-text-muted); text-transform: capitalize; }
+.context-trace__card--missing { border-left-color: #f59e0b; }
+.context-trace__card--sufficient { border-left-color: #16a34a; }
+.privacy-warning { margin: 10px 0 0; padding: 10px; color: #9a3412; background: #ffedd5; border: 1px solid #fdba74; border-radius: 8px; font-size: .78rem; }
+
 .spinner {
   width: 14px;
   height: 14px;

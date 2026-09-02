@@ -74,3 +74,23 @@ test('rejects an invalid prompt name', async () => {
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ promptName: 'x'.repeat(81), categories: [], summary: 'Summary', input: 'Input', output: 'Output' }) } }] }) });
   await assert.rejects(() => analyzePrompt(content), { status: 422 });
 });
+
+test('accepts title-case fields and common provider result wrappers', async () => {
+  configure();
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ analysis: {
+    'Prompt Name': 'Wrapped analysis', Categories: ['Testing'], Summary: 'A summary.', Input: 'Requirements.', Output: 'Test cases.'
+  } }) } }] }) });
+  assert.deepEqual(await analyzePrompt(content), {
+    promptName: 'Wrapped analysis', categories: ['Testing'], summary: 'A summary.', input: 'Requirements.', output: 'Test cases.'
+  });
+});
+
+test('normalizes semantic input/output aliases and list values', async () => {
+  configure();
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({
+    promptName: 'Alias analysis', categories: [], summary: 'A summary.', requiredInputs: ['Requirements', 'business rules'], expectedOutput: ['A report', 'with recommendations']
+  }) } }] }) });
+  assert.deepEqual(await analyzePrompt(content), {
+    promptName: 'Alias analysis', categories: [], summary: 'A summary.', input: 'Requirements business rules', output: 'A report with recommendations'
+  });
+});
