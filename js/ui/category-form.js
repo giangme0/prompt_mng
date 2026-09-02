@@ -12,7 +12,7 @@ export function openCategoryForm({ category = null, onSave }) {
   const label = document.createElement('label');
   label.htmlFor = 'category-name'; label.textContent = 'Category name';
   const input = document.createElement('input');
-  input.id = 'category-name'; input.name = 'name'; input.required = true; input.maxLength = 50; input.value = category?.name || '';
+  input.id = 'category-name'; input.name = 'name'; input.required = true; input.value = category?.name || '';
   nameField.append(label, input);
   const colorField = document.createElement('div'); colorField.className = 'form-field';
   const colorLabel = document.createElement('span'); colorLabel.className = 'field-label'; colorLabel.textContent = 'Color';

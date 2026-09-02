@@ -13,6 +13,7 @@ export function renderSidebar(state, onToggleCategory, onClear) {
     button.className = 'category-nav__item';
     button.type = 'button';
     button.setAttribute('aria-pressed', String(state.filters.categoryIds.includes(category.id)));
+    button.style.setProperty('--category-color', category.color);
     const label = document.createElement('span');
     label.className = 'category-nav__label';
     const dot = document.createElement('span');
@@ -43,6 +44,7 @@ export function renderActiveFilters(state, onRemove) {
     button.className = 'filter-chip';
     button.type = 'button';
     button.setAttribute('aria-label', `Remove ${category.name} filter`);
+    button.style.setProperty('--category-color', category.color);
     const dot = document.createElement('span');
     dot.className = 'category-dot';
     dot.style.setProperty('--dot-color', category.color);

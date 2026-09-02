@@ -43,6 +43,7 @@ export function renderPromptList({ prompts, categories, selectedPromptId, onSele
     card.setAttribute('aria-label', `View ${prompt.name}`);
     const header = document.createElement('div');
     header.className = 'prompt-card__header';
+    header.title = prompt.name;
     const title = document.createElement('h2');
     title.textContent = prompt.name;
     header.append(title);

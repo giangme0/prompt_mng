@@ -48,9 +48,7 @@ async function readJson(request) {
 
 function validateText(value, field) {
   if (typeof value !== 'string' || !value.trim()) throw Object.assign(new Error(`${field} is required`), { status: 400 });
-  const text = value.trim();
-  if (field === 'name' && text.length > 50) throw Object.assign(new Error('Category name must be 50 characters or fewer'), { status: 400 });
-  return text;
+  return value.trim();
 }
 
 function validatePromptText(value, field) {
@@ -93,7 +91,6 @@ function validateTrace(trace) {
 function validateCategoryBody(body) {
   if (typeof body.name !== 'string' || !body.name.trim()) throw Object.assign(new Error('name is required'), { status: 400 });
   const name = body.name.trim();
-  if (name.length > 50) throw Object.assign(new Error('Category name must be 50 characters or fewer'), { status: 400 });
   const color = body.color == null || body.color === '' ? '#16a34a' : validateText(body.color, 'color');
   if (!/^#[0-9A-Fa-f]{6}$/.test(color)) throw Object.assign(new Error('Color must be a 6-digit HEX value'), { status: 400 });
   return { name, color };

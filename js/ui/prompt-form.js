@@ -106,6 +106,7 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
       categorySelect.refresh();
     }
   });
+  categoryField.append(categoryLabel, categorySelect.element, categoryError);
   const summaryField = createField({
     label: 'Summary', name: 'summary', value: prompt?.summary || '', type: 'textarea', required: true,
     maxLength: 240, hint: 'Explain when this prompt is useful.'
