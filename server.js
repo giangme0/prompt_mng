@@ -1,14 +1,17 @@
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 import { initializeDatabase } from './server/database.js';
 import { createCategoryRepository } from './server/category-repository.js';
 import { createPromptRepository } from './server/prompt-repository.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
+dotenv.config({ path: join(ROOT, '.env') });
 const PORT = Number(process.env.PORT || 4173);
-const db = initializeDatabase(join(ROOT, 'data', 'prompt_mng.sqlite'));
+const databasePath = process.env.DATABASE_PATH || join('data', 'prompt_mng.sqlite');
+const db = initializeDatabase(resolve(ROOT, databasePath));
 const categories = createCategoryRepository(db);
 const prompts = createPromptRepository(db);
 
