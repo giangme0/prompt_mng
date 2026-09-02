@@ -252,7 +252,7 @@
 }
 
 .category-nav__item[aria-pressed="true"] {
-  color: var(--color-primary-hover);
+  color: black;
   background: color-mix(in srgb, var(--category-color) 18%, var(--color-surface));
 }
 
@@ -432,7 +432,7 @@
   gap: 6px;
   height: 29px;
   padding: 0 9px;
-  color: var(--color-primary-hover);
+  color: black;
   background: color-mix(in srgb, var(--category-color) 18%, var(--color-surface));
   border: 1px solid var(--color-border);
   border-radius: 999px;
