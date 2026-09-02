@@ -16,6 +16,12 @@ export function createCategorySelect({ categories, getSelectedIds, onChange, onC
 
   function render() {
     const selectedIds = getSelectedIds();
+    const selectedCategory = categories.find((category) => selectedIds.includes(category.id));
+    if (selectedCategory) {
+      control.style.setProperty('--category-select-color', selectedCategory.color);
+    } else {
+      control.style.removeProperty('--category-select-color');
+    }
     control.replaceChildren();
     selectedIds.forEach((id) => {
       const category = categories.find((item) => item.id === id);

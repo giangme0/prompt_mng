@@ -102,3 +102,25 @@ export function openConfirmation({ promptName, onConfirm }) {
     onConfirm();
   });
 }
+
+export function openCategoryConfirmation({ category, onConfirm }) {
+  const content = document.createElement('div');
+  content.className = 'confirmation-layout';
+  const icon = document.createElement('div'); icon.className = 'confirmation-icon'; icon.append(createIcon('alert'));
+  const copy = document.createElement('div'); copy.className = 'confirmation-copy';
+  const description = document.createElement('p');
+  if (category.promptCount) {
+    description.textContent = `“${category.name}” is currently used by ${category.promptCount} prompts.`;
+    const impact = document.createElement('p');
+    impact.textContent = 'Deleting this category will remove it from those prompts. The prompts themselves will not be deleted.';
+    copy.append(description, impact);
+  } else {
+    description.textContent = `“${category.name}” will be permanently deleted.`;
+    copy.append(description);
+  }
+  content.append(icon, copy);
+  const cancel = document.createElement('button'); cancel.className = 'button button--secondary'; cancel.type = 'button'; cancel.textContent = 'Cancel';
+  const remove = document.createElement('button'); remove.className = 'button button--danger'; remove.type = 'button'; remove.append(createIcon('trash'), document.createTextNode('Delete category'));
+  const close = openModal({ title: 'Delete category?', content, footer: [cancel, remove], size: 'small' });
+  cancel.addEventListener('click', close); remove.addEventListener('click', () => { close(); onConfirm(); });
+}

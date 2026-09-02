@@ -4,7 +4,7 @@ body::before {
   inset: 0 0 auto;
   z-index: 5;
   height: 3px;
-  background: linear-gradient(90deg, #696af3, #af6df3 48%, #4ac9d5);
+  background: linear-gradient(90deg, #16a34a, #10b981 50%, #14b8a6);
 }
 
 .ambient {
@@ -21,13 +21,13 @@ body::before {
 .ambient--one {
   top: -180px;
   left: -110px;
-  background: radial-gradient(circle, #afaefe, transparent 68%);
+  background: radial-gradient(circle, #bbf7d0, transparent 68%);
 }
 
 .ambient--two {
   right: -160px;
   bottom: -190px;
-  background: radial-gradient(circle, #b9e8ec, transparent 68%);
+  background: radial-gradient(circle, #99f6e4, transparent 68%);
 }
 
 .app-shell {
@@ -38,7 +38,7 @@ body::before {
   margin: 16px;
   overflow: hidden;
   background: var(--color-surface);
-  border: 1px solid rgba(218, 222, 234, 0.9);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-shell);
 }
@@ -49,7 +49,7 @@ body::before {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: #f8f9fd;
+  background: var(--color-surface-soft);
   border-right: 1px solid var(--color-border);
 }
 
@@ -69,9 +69,9 @@ body::before {
   height: 39px;
   place-items: center;
   color: white;
-  background: linear-gradient(145deg, #7374ee, #4a4bc8);
+  background: linear-gradient(145deg, #22c55e, #15803d);
   border-radius: 12px;
-  box-shadow: 0 7px 16px rgba(91, 92, 226, 0.28);
+  box-shadow: 0 7px 16px rgba(22, 163, 74, 0.25);
 }
 
 .brand__mark svg {
@@ -173,8 +173,8 @@ body::before {
   min-height: 0;
   overflow-y: auto;
   background:
-    radial-gradient(circle at top right, rgba(102, 104, 232, 0.07), transparent 30%),
-    #fbfcff;
+    radial-gradient(circle at top right, rgba(22, 163, 74, 0.07), transparent 30%),
+    var(--color-surface-soft);
 }
 
 .sidebar-scrim {

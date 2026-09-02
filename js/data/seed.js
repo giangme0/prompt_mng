@@ -1,10 +1,10 @@
 export const seedCategories = [
-  { id: 'cat-coding', name: 'Coding', color: '#2563eb' },
-  { id: 'cat-testing', name: 'Testing', color: '#7c3aed' },
-  { id: 'cat-api', name: 'API', color: '#0891b2' },
-  { id: 'cat-analysis', name: 'Analysis', color: '#059669' },
-  { id: 'cat-design', name: 'Design', color: '#ea580c' },
-  { id: 'cat-documentation', name: 'Documentation', color: '#64748b' }
+  { id: 'cat-coding', name: 'Coding', color: '#15803d' },
+  { id: 'cat-testing', name: 'Testing', color: '#059669' },
+  { id: 'cat-api', name: 'API', color: '#0f766e' },
+  { id: 'cat-analysis', name: 'Analysis', color: '#16a34a' },
+  { id: 'cat-design', name: 'Design', color: '#4d7c0f' },
+  { id: 'cat-documentation', name: 'Documentation', color: '#647c6c' }
 ];
 
 export const seedPrompts = [

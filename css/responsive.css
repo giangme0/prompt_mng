@@ -119,7 +119,7 @@
     inset: 0;
     z-index: 50;
     visibility: hidden;
-    background: #fbfcff;
+    background: var(--color-surface-soft);
     opacity: 0;
     transform: translateX(100%);
     transition: transform 220ms ease, opacity 180ms ease, visibility 220ms ease;
@@ -196,6 +196,8 @@
 }
 
 @media (max-width: 420px) {
+  .color-picker { grid-template-columns: repeat(10, 22px); grid-template-rows: repeat(9, 22px); gap: 7px; }
+
   .prompt-card {
     padding: 14px 13px;
   }

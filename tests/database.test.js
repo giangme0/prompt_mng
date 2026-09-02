@@ -42,3 +42,32 @@ test('invalid category rolls back prompt transaction and delete cascades relatio
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('category CRUD validates names, counts prompts, and removes relations on delete', () => {
+  const { db, directory, categories, prompts } = setup();
+  try {
+    const created = categories.create({ id: 'cat-security', name: ' Security ', color: '#15803d' });
+    assert.equal(created.name, 'Security');
+    assert.equal(created.promptCount, 0);
+    assert.throws(
+      () => categories.create({ id: 'cat-duplicate', name: ' SECURITY ', color: '#059669' }),
+      (error) => error.code === 'SQLITE_CONSTRAINT_UNIQUE'
+    );
+
+    prompts.create({ id: 'uses-security', name: 'Security prompt', summary: 'Summary', content: 'Content', categoryIds: ['cat-security'] });
+    assert.equal(categories.list().find((category) => category.id === 'cat-security').promptCount, 1);
+    const updated = categories.update('cat-security', { name: 'Infrastructure', color: '#059669' });
+    assert.equal(updated.name, 'Infrastructure');
+    assert.equal(updated.color, '#059669');
+    assert.equal(updated.promptCount, 1);
+
+    assert.deepEqual(categories.delete('cat-security'), { id: 'cat-security', deleted: true, affectedPromptCount: 1 });
+    assert.equal(prompts.get('uses-security').id, 'uses-security');
+    assert.deepEqual(prompts.get('uses-security').categoryIds, []);
+    assert.equal(categories.update('missing', { name: 'Missing', color: '#15803d' }), null);
+    assert.equal(categories.delete('missing'), null);
+  } finally {
+    db.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

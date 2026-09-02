@@ -1,6 +1,6 @@
 import { getVisiblePrompts } from './modules/filters.js';
 import { createPrompt, updatePrompt } from './modules/prompts.js';
-import { createCategory, createPrompt as apiCreatePrompt, deletePrompt, getCategories, getPrompts, updatePrompt as apiUpdatePrompt } from './services/api.js';
+import { createCategory, createPrompt as apiCreatePrompt, deleteCategory, deletePrompt, getCategories, getPrompts, updateCategory, updatePrompt as apiUpdatePrompt } from './services/api.js';
 import { createStore } from './state/store.js';
 import { createId } from './utils/id.js';
 import { hydrateIcons, createIcon } from './ui/icons.js';
@@ -10,6 +10,8 @@ import { renderPromptDetail } from './ui/prompt-detail.js';
 import { renderPromptList } from './ui/prompt-list.js';
 import { renderActiveFilters, renderSidebar } from './ui/sidebar.js';
 import { showToast } from './ui/toast.js';
+import { openCategoryManager } from './ui/category-manager.js';
+import { CATEGORY_COLORS } from './modules/categories.js';
 
 const store = createStore({
   prompts: [],
@@ -69,10 +71,36 @@ function selectPrompt(promptId) {
 }
 
 async function createCategoryForStore(name) {
-  const colors = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#ea580c', '#db2777', '#4f46e5'];
-  const category = await createCategory({ name, color: colors[store.getState().categories.length % colors.length] });
+  const category = await createCategory({ name, color: CATEGORY_COLORS[store.getState().categories.length % CATEGORY_COLORS.length] });
   store.setState({ categories: [...store.getState().categories, category] });
   return category;
+}
+
+async function refreshLibrary() {
+  const [prompts, categories] = await Promise.all([getPrompts(), getCategories()]);
+  const state = store.getState();
+  const categoryIds = state.filters.categoryIds.filter((id) => categories.some((category) => category.id === id));
+  const nextState = { ...state, prompts, categories, filters: { ...state.filters, categoryIds } };
+  store.setState({ prompts, categories, filters: nextState.filters, selectedPromptId: selectBestVisible(nextState) });
+}
+
+function openManageCategories() {
+  openCategoryManager({
+    categories: store.getState().categories,
+    onCreate: async (data) => { await createCategory(data); await refreshLibrary(); showToast('Category created'); openManageCategories(); },
+    onUpdate: async (id, data) => { await updateCategory(id, data); await refreshLibrary(); showToast('Category updated'); openManageCategories(); },
+    onDelete: async (id) => {
+      try {
+        await deleteCategory(id);
+        await refreshLibrary();
+        showToast('Category deleted');
+        openManageCategories();
+      } catch (error) {
+        showToast(error.message, 'error');
+        openManageCategories();
+      }
+    }
+  });
 }
 
 async function copyPrompt(prompt, button) {
@@ -184,6 +212,7 @@ document.querySelector('#new-prompt-button').addEventListener('click', openCreat
 document.querySelector('#mobile-menu-button').addEventListener('click', openSidebar);
 document.querySelector('#sidebar-scrim').addEventListener('click', closeSidebar);
 clearFiltersButton.addEventListener('click', clearCategoryFilters);
+document.querySelector('#manage-categories-button').addEventListener('click', openManageCategories);
 
 searchInput.addEventListener('input', () => updateFilters({ search: searchInput.value }));
 sortSelect.addEventListener('change', () => {

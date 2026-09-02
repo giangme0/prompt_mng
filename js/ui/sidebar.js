@@ -32,6 +32,7 @@ export function renderSidebar(state, onToggleCategory, onClear) {
   allButton.onclick = onClear;
 }
 
+
 export function renderActiveFilters(state, onRemove) {
   const container = document.querySelector('#active-filters');
   container.replaceChildren();

@@ -44,12 +44,12 @@ body {
 }
 
 ::selection {
-  background: #dcdcff;
-  color: #24256d;
+  background: #bbf7d0;
+  color: #14532d;
 }
 
 :focus-visible {
-  outline: 3px solid rgba(91, 92, 226, 0.26);
+  outline: 3px solid rgba(22, 163, 74, 0.25);
   outline-offset: 2px;
 }
 
