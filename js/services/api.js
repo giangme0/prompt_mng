@@ -16,3 +16,4 @@ export const deletePrompt = (id) => request(`/api/prompts/${encodeURIComponent(i
 export const createCategory = (data) => request('/api/categories', { method: 'POST', body: JSON.stringify(data) });
 export const updateCategory = (id, data) => request(`/api/categories/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteCategory = (id) => request(`/api/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const analyzePrompt = (content, options = {}) => request('/api/llm/analyze-prompt', { method: 'POST', body: JSON.stringify({ content }), ...options });

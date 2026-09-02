@@ -103,6 +103,23 @@ export function openConfirmation({ promptName, onConfirm }) {
   });
 }
 
+export function openAnalysisConfirmation({ onConfirm }) {
+  const content = document.createElement('div');
+  content.className = 'confirmation-copy';
+  const heading = document.createElement('h3');
+  heading.textContent = 'Analyze again?';
+  const description = document.createElement('p');
+  description.textContent = 'This will replace the current Summary, Input and Output.';
+  content.append(heading, description);
+  const cancel = document.createElement('button');
+  cancel.className = 'button button--secondary'; cancel.type = 'button'; cancel.textContent = 'Cancel';
+  const confirm = document.createElement('button');
+  confirm.className = 'button button--primary'; confirm.type = 'button'; confirm.textContent = 'Analyze again';
+  const close = openModal({ title: 'Analyze again?', content, footer: [cancel, confirm], size: 'small' });
+  cancel.addEventListener('click', close);
+  confirm.addEventListener('click', () => { close(); onConfirm(); });
+}
+
 export function openCategoryConfirmation({ category, onConfirm }) {
   const content = document.createElement('div');
   content.className = 'confirmation-layout';

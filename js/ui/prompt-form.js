@@ -1,7 +1,8 @@
 import { createCategorySelect } from './category-select.js';
 import { createIcon } from './icons.js';
-import { openModal } from './modal.js';
+import { openAnalysisConfirmation, openModal } from './modal.js';
 import { showToast } from './toast.js';
+import { analyzePrompt } from '../services/api.js';
 
 function createField({ label, name, value = '', type = 'input', required = false, maxLength = null, hint = '', placeholder = '' }) {
   const wrapper = document.createElement('div');
@@ -45,6 +46,10 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
   const isEdit = Boolean(prompt);
   const workingCategories = categories.map((category) => ({ ...category }));
   let selectedIds = [...(prompt?.categoryIds || [])];
+  const aiFieldState = { summaryDirty: false, inputDirty: false, outputDirty: false };
+  let analysisTimer = null;
+  let analysisController = null;
+  let currentAnalysisRequestId = 0;
   const form = document.createElement('form');
   form.id = 'prompt-form';
   form.className = 'form-grid';
@@ -110,7 +115,15 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
     label: 'Prompt content', name: 'content', value: prompt?.content || '', type: 'textarea', required: true,
     hint: 'Use {{variable}} placeholders where needed.'
   });
-  form.append(nameField.wrapper, categoryField, summaryField.wrapper, inputField.wrapper, outputField.wrapper, contentField.wrapper);
+  const analysisControls = document.createElement('div');
+  analysisControls.className = 'ai-analysis-controls';
+  const analyzeButton = document.createElement('button');
+  analyzeButton.className = 'button button--secondary'; analyzeButton.type = 'button';
+  analyzeButton.append(createIcon('sparkle'), document.createTextNode(isEdit ? 'Re-analyze with AI' : 'Analyze with AI'));
+  const analysisStatus = document.createElement('div');
+  analysisStatus.className = 'ai-analysis-status'; analysisStatus.setAttribute('aria-live', 'polite'); analysisStatus.hidden = true;
+  analysisControls.append(analyzeButton, analysisStatus);
+  form.append(nameField.wrapper, categoryField, contentField.wrapper, analysisControls, summaryField.wrapper, inputField.wrapper, outputField.wrapper);
 
   const cancelButton = document.createElement('button');
   cancelButton.className = 'button button--secondary';
@@ -122,11 +135,79 @@ export function openPromptForm({ prompt = null, categories, onSave, onCreateCate
   saveButton.setAttribute('form', form.id);
   saveButton.append(createIcon(isEdit ? 'save' : 'plus'), document.createTextNode(isEdit ? 'Save changes' : 'Create prompt'));
 
+  const fields = [summaryField, inputField, outputField];
+  fields.forEach(({ input }, index) => input.addEventListener('input', () => {
+    aiFieldState[['summaryDirty', 'inputDirty', 'outputDirty'][index]] = true;
+  }));
+
+  function setLoading(loading) {
+    analyzeButton.disabled = loading;
+    saveButton.disabled = loading;
+    if (loading) {
+      analysisStatus.hidden = false;
+      analysisStatus.replaceChildren();
+      const spinner = document.createElement('span'); spinner.className = 'spinner'; spinner.setAttribute('aria-hidden', 'true');
+      analysisStatus.append(spinner, document.createTextNode('Analyzing prompt...'));
+      fields.forEach(({ input }) => input.classList.toggle('is-loading', true));
+    } else fields.forEach(({ input }) => input.classList.toggle('is-loading', false));
+  }
+
+  async function runAnalysis({ force = false, confirmed = false } = {}) {
+    const content = contentField.input.value.trim();
+    if (content.length < 50) {
+      if (force) showToast('Prompt content must be at least 50 characters', 'error');
+      return;
+    }
+    if (force && !confirmed && (isEdit || Object.values(aiFieldState).some(Boolean))) {
+      openAnalysisConfirmation({ onConfirm: () => {
+        aiFieldState.summaryDirty = false;
+        aiFieldState.inputDirty = false;
+        aiFieldState.outputDirty = false;
+        runAnalysis({ force: true, confirmed: true });
+      } });
+      return;
+    }
+    analysisController?.abort();
+    const requestId = ++currentAnalysisRequestId;
+    analysisController = new AbortController();
+    setLoading(true);
+    try {
+      const result = await analyzePrompt(content, { signal: analysisController.signal });
+      if (requestId !== currentAnalysisRequestId || content !== contentField.input.value.trim()) return;
+      if (!aiFieldState.summaryDirty) summaryField.input.value = result.summary;
+      if (!aiFieldState.inputDirty) inputField.input.value = result.input;
+      if (!aiFieldState.outputDirty) outputField.input.value = result.output;
+      analysisStatus.hidden = false;
+      analysisStatus.replaceChildren(document.createTextNode('✓ Analysis complete — you can edit the generated fields.'));
+      window.setTimeout(() => { if (analysisStatus.isConnected) analysisStatus.hidden = true; }, 2000);
+    } catch (error) {
+      if (error.name !== 'AbortError' && requestId === currentAnalysisRequestId) {
+        analysisStatus.hidden = true;
+        showToast(error.message.includes('not configured') ? 'AI analysis is not configured. Enter the details manually.' : 'Could not analyze this prompt. You can retry or enter the details manually.', 'error');
+      }
+    } finally {
+      if (requestId === currentAnalysisRequestId) { setLoading(false); analysisController = null; }
+    }
+  }
+
+  analyzeButton.addEventListener('click', () => runAnalysis({ force: true }));
+  contentField.input.addEventListener('paste', () => {
+    if (isEdit) return;
+    window.clearTimeout(analysisTimer);
+    analysisController?.abort();
+    analysisTimer = window.setTimeout(() => runAnalysis(), 700);
+  });
+
   const close = openModal({
     title: isEdit ? 'Edit prompt' : 'Create a new prompt',
     subtitle: isEdit ? 'Update the prompt details and save your changes.' : 'Add a reusable prompt to your personal library.',
     content: form,
-    footer: [cancelButton, saveButton]
+    footer: [cancelButton, saveButton],
+    onClose: () => {
+      window.clearTimeout(analysisTimer);
+      analysisController?.abort();
+      currentAnalysisRequestId += 1;
+    }
   });
   cancelButton.addEventListener('click', close);
   form.addEventListener('submit', async (event) => {

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { initializeDatabase } from './server/database.js';
 import { createCategoryRepository } from './server/category-repository.js';
 import { createPromptRepository } from './server/prompt-repository.js';
+import { analyzePrompt } from './server/services/llm-service.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 dotenv.config({ path: join(ROOT, '.env') });
@@ -14,6 +15,8 @@ const databasePath = process.env.DATABASE_PATH || join('data', 'prompt_mng.sqlit
 const db = initializeDatabase(resolve(ROOT, databasePath));
 const categories = createCategoryRepository(db);
 const prompts = createPromptRepository(db);
+
+console.log(`[server] Database: ${resolve(ROOT, databasePath)}`);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -72,6 +75,11 @@ function validateCategoryBody(body) {
 
 async function handleApi(request, response, url) {
   const path = url.pathname;
+  if (request.method === 'POST' && path === '/api/llm/analyze-prompt') {
+    const body = await readJson(request);
+    const result = await analyzePrompt(body?.content);
+    return sendJson(response, 200, result);
+  }
   if (request.method === 'GET' && path === '/api/categories') return sendJson(response, 200, categories.list());
   if (request.method === 'GET' && path === '/api/prompts') return sendJson(response, 200, prompts.list());
 
@@ -123,6 +131,13 @@ async function handleApi(request, response, url) {
 }
 
 const server = http.createServer(async (request, response) => {
+  const startedAt = Date.now();
+  const requestUrl = request.url || '/';
+  console.log(`[server] ${request.method} ${requestUrl}`);
+  response.once('finish', () => {
+    console.log(`[server] ${request.method} ${requestUrl} -> ${response.statusCode} (${Date.now() - startedAt}ms)`);
+  });
+
   try {
     const url = new URL(request.url, `http://${request.headers.host}`);
     if (url.pathname.startsWith('/api/')) {
@@ -150,12 +165,20 @@ const server = http.createServer(async (request, response) => {
     });
     response.end(content);
   } catch (error) {
-    if (request.url.startsWith('/api/')) return errorResponse(response, error.status || (error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 409 : 500), error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 'Category name already exists' : error.message || 'Server error');
+    console.log(`[server] Request failed: ${request.method} ${request.url} - ${error.message}`);
+    if (request.url.startsWith('/api/')) {
+      if (request.url.split('?')[0] === '/api/llm/analyze-prompt') {
+        const status = error.status || 500;
+        const message = status === 400 ? error.message : status === 503 ? 'AI analysis is not configured' : status === 504 ? 'LLM request timed out' : status === 422 ? 'Unable to analyze the prompt' : status === 502 ? 'Unable to reach the LLM provider' : 'Unable to analyze the prompt';
+        return errorResponse(response, status, message);
+      }
+      return errorResponse(response, error.status || (error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 409 : 500), error.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 'Category name already exists' : error.message || 'Server error');
+    }
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`Prompt Manager is running at http://localhost:${PORT}`);
+  console.log(`[server] Prompt Manager is running at http://localhost:${PORT}`);
 });

@@ -24,6 +24,14 @@ npm start
 
 Then open <http://localhost:4173>.
 
+## AI prompt analysis
+
+Copy `.env.example` to `.env` and configure `LLM_API_URL`, `LLM_API_KEY`,
+`LLM_MODEL`, and optionally `LLM_TIMEOUT_MS`. The browser calls the local
+`/api/llm/analyze-prompt` endpoint; the provider key is used only by the
+Node.js backend. Configure these values in Render's service Environment
+settings when deploying, and never commit `.env`.
+
 Run `npm install` once to install `better-sqlite3`. The database is created automatically at `data/prompt_mng.sqlite` when the server starts.
 
 ## Test
